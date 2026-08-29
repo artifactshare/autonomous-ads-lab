@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Autonomous Ads Lab — 公開実験企画書</title>
+<style>
+:root{
+  --ink:#171717;--muted:#6b665f;--paper:#fbfaf7;--card:#fff;--line:#e7e0d6;
+  --soft:#f3eee6;--accent:#ff6a3d;--green:#2e7d4f;--shadow:0 20px 60px rgba(37,31,24,.10);
+  --mono:"SF Mono",ui-monospace,Menlo,monospace;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0;background:var(--paper);color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Yu Gothic",YuGothic,"Noto Sans JP","Segoe UI",sans-serif;
+  line-height:1.85;letter-spacing:.01em;
+  word-break:auto-phrase;overflow-wrap:anywhere;
+}
+a{color:var(--accent);text-decoration:none;border-bottom:1px solid rgba(255,106,61,.35)}
+a:hover{border-bottom-color:var(--accent)}
+.layout{max-width:1180px;margin:0 auto;padding:0 22px;display:grid;grid-template-columns:220px minmax(0,1fr);gap:44px}
+main{min-width:0;padding-bottom:120px}
+
+/* ---- TOC (scroll-linked) ---- */
+nav.toc{position:sticky;top:0;align-self:start;height:100dvh;padding:36px 0;display:flex;flex-direction:column;gap:2px}
+nav.toc .toc-title{font-size:12px;font-weight:800;color:var(--muted);letter-spacing:.12em;margin-bottom:10px}
+nav.toc a{
+  display:block;padding:7px 12px;border-left:2px solid var(--line);border-bottom:none;
+  color:var(--muted);font-size:13.5px;font-weight:600;transition:all .15s;
+}
+nav.toc a.active{color:var(--accent);border-left-color:var(--accent);background:linear-gradient(90deg,rgba(255,106,61,.07),transparent)}
+@media (max-width:880px){
+  .layout{grid-template-columns:1fr;gap:0}
+  nav.toc{
+    position:sticky;top:0;z-index:20;height:auto;flex-direction:row;overflow-x:auto;
+    background:rgba(251,250,247,.92);backdrop-filter:blur(10px);
+    border-bottom:1px solid var(--line);padding:10px 0;gap:2px;
+    -webkit-overflow-scrolling:touch;scrollbar-width:none;
+  }
+  nav.toc::-webkit-scrollbar{display:none}
+  nav.toc .toc-title{display:none}
+  nav.toc a{white-space:nowrap;border-left:none;border-bottom:2px solid transparent;padding:6px 12px;border-radius:999px}
+  nav.toc a.active{border-bottom:none;background:var(--accent);color:#fff}
+}
+
+/* ---- sections ---- */
+section{padding-top:64px}
+.eyebrow{color:var(--accent);font-weight:800;font-size:13px;letter-spacing:.08em}
+h1{font-size:clamp(38px,7vw,72px);line-height:1.05;letter-spacing:-.05em;margin:14px 0 20px}
+h2{font-size:clamp(24px,3.4vw,34px);letter-spacing:-.03em;line-height:1.25;margin:6px 0 18px}
+.lead{font-size:clamp(16px,2vw,20px);color:#3e3a35;max-width:660px}
+.hero{padding-top:56px}
+.hero-meta{display:flex;gap:10px;flex-wrap:wrap;margin-top:26px}
+.chip{background:#fff;border:1px solid var(--line);border-radius:999px;padding:9px 16px;box-shadow:0 8px 24px rgba(30,25,20,.05);font-weight:700;font-size:14px}
+.chip span{color:var(--muted);font-weight:600;margin-right:6px}
+.chip.live{border-color:var(--green);color:var(--green)}
+.chip.live::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--green);margin-right:8px;animation:pulse 1.8s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;margin-top:22px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:22px 24px;box-shadow:0 10px 30px rgba(30,25,20,.05)}
+.card b{display:block;font-size:16px;margin-bottom:6px}
+.card p{margin:0;color:#4a453e;font-size:14.5px}
+.num{font-family:var(--mono)}
+
+.loop{display:flex;flex-wrap:wrap;gap:8px;margin:22px 0;align-items:center}
+.loop .step{background:#fff;border:1px solid var(--line);border-radius:14px;padding:10px 14px;font-weight:700;font-size:14px;box-shadow:0 6px 18px rgba(30,25,20,.05)}
+.loop .step small{display:block;font-weight:600;color:var(--muted);font-size:11.5px}
+.loop .arrow{color:var(--accent);font-weight:800}
+
+table{width:100%;border-collapse:collapse;font-size:14.5px;margin-top:14px;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 10px 30px rgba(30,25,20,.05)}
+th{background:var(--soft);text-align:left;padding:12px 16px;font-size:12.5px;letter-spacing:.06em;color:var(--muted)}
+td{padding:12px 16px;border-top:1px solid var(--line)}
+.table-scroll{overflow-x:auto;border-radius:16px}
+
+.callout{background:linear-gradient(135deg,#fff,#f6efe4);border:1px solid #eadfce;border-radius:20px;padding:22px 26px;margin-top:20px;box-shadow:var(--shadow)}
+.links{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin-top:20px}
+.linkcard{display:block;background:#fff;border:1px solid var(--line);border-radius:18px;padding:20px 22px;border-bottom:1px solid var(--line);box-shadow:0 10px 30px rgba(30,25,20,.05);transition:transform .15s}
+.linkcard:hover{transform:translateY(-2px)}
+.linkcard b{display:block;color:var(--ink);font-size:15.5px}
+.linkcard small{color:var(--muted)}
+.linkcard .url{display:block;margin-top:8px;font-family:var(--mono);font-size:12px;color:var(--accent)}
+footer{margin-top:80px;padding-top:24px;border-top:1px solid var(--line);color:var(--muted);font-size:13px}
+ul{padding-left:1.3em}
+li{margin:6px 0}
+</style>
+</head>
+<body>
+<div class="layout">
+<nav class="toc" id="toc">
+  <div class="toc-title">AUTONOMOUS ADS LAB</div>
+  <a href="#top">概要</a>
+  <a href="#philosophy">設計思想</a>
+  <a href="#loop">自律ループ</a>
+  <a href="#budget">予算と実績</a>
+  <a href="#status">現在の状況</a>
+  <a href="#self">自己改善</a>
+  <a href="#open">公開と透明性</a>
+  <a href="#next">これから</a>
+</nav>
+<main>
+
+<section class="hero" id="top">
+  <div class="eyebrow">公開実験 — 進行中</div>
+  <h1>Autonomous Ads Lab</h1>
+  <p class="lead">AIは、自分で広告を試し、学び、改善できるのか。AIが市場を調べ、仮説を立て、広告を作り、配信し、結果を観察し、自分の運用方法まで改善する——Artifact Shareを最初の実験対象にした、オープンソースの公開実験です。</p>
+  <div class="hero-meta">
+    <div class="chip live">初回キャンペーン配信中</div>
+    <div class="chip"><span>対象</span>Artifact Share</div>
+    <div class="chip"><span>市場</span>英語圏 / X広告</div>
+    <div class="chip"><span>予算</span>月$50 + 固定費</div>
+    <div class="chip"><span>開始</span>2026-08-29</div>
+  </div>
+  <div class="links">
+    <a class="linkcard" href="https://artifactshare.com/a/a68uv6pu0e">
+      <b>📊 Living Report</b>
+      <small>予算・クリエイティブ・AI予測と実績。自動更新、同じURLに蓄積</small>
+      <span class="url">artifactshare.com/a/a68uv6pu0e</span>
+    </a>
+    <a class="linkcard" href="https://github.com/artifactshare/autonomous-ads-lab">
+      <b>🛠 GitHub リポジトリ</b>
+      <small>全コード・Experience DB・作業ジャーナル。判断ログまで公開</small>
+      <span class="url">github.com/artifactshare/autonomous-ads-lab</span>
+    </a>
+  </div>
+</section>
+
+<section id="philosophy">
+  <div class="eyebrow">PHILOSOPHY</div>
+  <h2>Ask less. Act, observe, improve.</h2>
+  <p>これは広告自動化ツールではなく、公開実験です。通常フローに人間の承認を置かず、問題は起きてから対処します。守るのはコードレベルで強制された予算だけ。AIの善意には依存しません。</p>
+  <div class="cards">
+    <div class="card"><b>まずやる</b><p>確認を待たず、小さく可逆に実行する。結果が出てから観察する。</p></div>
+    <div class="card"><b>現実で判断する</b><p>AI評価は「予測」として保存し、実際のクリック・登録・First Shareと突き合わせる。</p></div>
+    <div class="card"><b>自分も改善する</b><p>広告だけでなく、評価方法・探索戦略・ハーネス自体を毎週更新する。</p></div>
+    <div class="card"><b>失敗も公開する</b><p>重複課金も、配信ブロックも、予測のハズレも、そのまま記録して公開する。</p></div>
+  </div>
+</section>
+
+<section id="loop">
+  <div class="eyebrow">THE LOOP</div>
+  <h2>自律改善ループ — すでに一周が動いている</h2>
+  <div class="loop">
+    <div class="step">Research<small>Grokで市場観測</small></div><div class="arrow">→</div>
+    <div class="step">Hypothesis<small>仮説を作る</small></div><div class="arrow">→</div>
+    <div class="step">Create<small>動画生成+文字焼き込み</small></div><div class="arrow">→</div>
+    <div class="step">Evaluate<small>AIが7軸で事前評価</small></div><div class="arrow">→</div>
+    <div class="step">Deploy<small>X広告へ配信</small></div><div class="arrow">→</div>
+    <div class="step">Observe<small>日次で観測</small></div><div class="arrow">→</div>
+    <div class="step">Learn<small>Experience DBへ</small></div><div class="arrow">↺</div>
+  </div>
+  <p>初日の実績: 動画生成(fal / MiniMax H3 Max)→AI評価で1本目を失格判定(文字崩れ検出)→「読ませる文字は後処理で焼き込む」方式に転換→3案を生成・評価→winner「final_v7増殖」をXへ入稿・配信開始。AI評価はCTRとの突き合わせ用の予測として全件保存しています。</p>
+  <div class="callout">
+    <b>調査もAIが自分で行う</b><br>
+    Grok(x_search/web_search)が自社への言及・開発者のpain point・効いている広告表現を定期観測し、Technique Libraryに正規化します。人気があるだけでは採用せず、discovered → 実験 → evidence を通過したものだけがvalidatedになります。
+  </div>
+</section>
+
+<section id="budget">
+  <div class="eyebrow">BUDGET</div>
+  <h2>予算はコードで縛る。それが唯一のHuman Gate</h2>
+  <p>すべての支出は実行前にBudget Controllerの承認を通り、見積もりは実費に突合されます。上限値はCIの必須チェック(budget-guard)にも焼き込まれており、自動化の仕組み自身にも書き換えられません。増額できるのは人間だけです。</p>
+  <div class="table-scroll"><table>
+    <tr><th>項目</th><th>月上限</th><th>初日実績</th><th>備考</th></tr>
+    <tr><td>クリエイティブ生成</td><td class="num">$10</td><td class="num">$2.80</td><td>動画5本(重複課金$1.20含む——修正済み・公開済み)</td></tr>
+    <tr><td>X広告配信</td><td class="num">$30 <span style="color:var(--muted)">(日次$1.5)</span></td><td class="num">配信開始</td><td>日次capを二段目の安全弁に</td></tr>
+    <tr><td>AI/API</td><td class="num">$10</td><td class="num">$0.10</td><td>Grok観測3クエリ</td></tr>
+    <tr><td>固定費</td><td class="num">¥459/月</td><td class="num">¥459</td><td>X Premium(広告配信の必須条件と判明。2ヶ月後¥918)</td></tr>
+  </table></div>
+</section>
+
+<section id="status">
+  <div class="eyebrow">STATUS</div>
+  <h2>現在の状況(2026-08-29)</h2>
+  <div class="cards">
+    <div class="card"><b>✅ 配信中</b><p>初回キャンペーンがX上でActive。US/UK/CA/AU、英語、AIコーディング関連キーワード。</p></div>
+    <div class="card"><b>✅ 全ループ自動化</b><p>日次(観測・予算・レポート)と週次(Research・学習)がGitHub Actionsで無人稼働。</p></div>
+    <div class="card"><b>⏳ Ads API承認待ち</b><p>申請済み。承認まで入稿・metrics取得は半自動(承認後に完全自動化)。</p></div>
+    <div class="card"><b>📈 次の計測点</b><p>初のインプレッション・CTRデータ。AI予測(overall 4.5/10)との答え合わせが始まる。</p></div>
+  </div>
+</section>
+
+<section id="self">
+  <div class="eyebrow">SELF-IMPROVEMENT</div>
+  <h2>ハーネス自身も、AIが直す</h2>
+  <p>週次の「harness agent」がジャーナル・ログ・CI結果を読み、問題をissue化し、修正をPRとして提出し、テストが通れば自動マージします。人間に頼るのは、権限や外部サービス設定など構造的にAIができない作業だけ——その場合も、実行するだけで済む手順を添えてSlackに通知が届きます。</p>
+  <div class="callout">
+    <b>初回実行の実績</b>: 予算台帳が見積もりを実費の約3倍で計上し続けるバグをagent自身が発見。テスト付きの修正PRを作成し、CIを通過して自動マージされました。issueは7件起票され、残りも翌週のagentが処理します。
+  </div>
+  <p>使うAIも適材適所に階層化しています: 前提を疑う仮説作りには最上位モデルを週数回だけ、数値分析には論理に強いモデル、頻度の高い評価・文章には軽量モデル。この配分自体も将来の改善対象です。</p>
+</section>
+
+<section id="open">
+  <div class="eyebrow">OPEN</div>
+  <h2>途中経過ごと、全部公開する</h2>
+  <ul>
+    <li><a href="https://artifactshare.com/a/a68uv6pu0e">Living Report</a> — 実験の公式ダッシュボード。Experience DBから自動生成され、同じURLで更新され続けます</li>
+    <li><a href="https://github.com/artifactshare/autonomous-ads-lab/tree/main/journal">作業ジャーナル</a> — 人間とAIの両方が同じファイルに時系列で記録。失敗とコストも正直に</li>
+    <li><a href="https://github.com/artifactshare/autonomous-ads-lab/blob/main/data/experience.db">Experience DB</a> — 仮説・クリエイティブ(系譜つき)・評価・配信・支出・学習の全記録がリポジトリにコミットされています</li>
+    <li><a href="https://github.com/artifactshare/autonomous-ads-lab/issues">Issues</a> — AIが自分で起票した課題と、その解決の履歴</li>
+    <li><a href="https://github.com/artifactshare/autonomous-ads-lab/blob/main/HANDOVER.md">エンジニアリング設計書</a> — v0の設計判断と実装計画</li>
+  </ul>
+</section>
+
+<section id="next">
+  <div class="eyebrow">NEXT</div>
+  <h2>これから検証すること</h2>
+  <div class="cards">
+    <div class="card"><b>予測は当たるのか</b><p>AIの事前評価スコアと実CTRの相関を取る。ズレの分析が評価器の改善材料になる。</p></div>
+    <div class="card"><b>Champion / Mutation / Challenger</b><p>実績のある案を軸に、変異と挑戦者を毎週競わせる探索構造へ。</p></div>
+    <div class="card"><b>プロダクトを見せる</b><p>初週の学び「抽象映像ではプロダクトが伝わらない」を受け、実画面の合成を試す。</p></div>
+    <div class="card"><b>最重要KPIへ</b><p>データが溜まり次第、CTRからCost per First Successful Shareへ判断軸を移す。</p></div>
+  </div>
+  <p style="margin-top:28px;font-size:18px;font-weight:700">AIは、広告を作る道具を超えて、自分で試し続ける小さなマーケティング主体になれるのか。答えは<a href="https://artifactshare.com/a/a68uv6pu0e">Living Report</a>に積み上がっていきます。</p>
+</section>
+
+<footer>Autonomous Ads Lab / 初期実験対象: <a href="https://artifactshare.com">Artifact Share</a> / 公開実験・オープンソース開発 / 運営: TechTalk, Inc.</footer>
+</main>
+</div>
+
+<script>
+(() => {
+  const links = [...document.querySelectorAll('nav.toc a')];
+  const sections = links.map(a => document.querySelector(a.getAttribute('href')));
+  const byId = new Map(links.map(a => [a.getAttribute('href').slice(1), a]));
+  let current = null;
+  const setActive = (id) => {
+    if (id === current) return;
+    current = id;
+    links.forEach(a => a.classList.toggle('active', a.getAttribute('href') === '#' + id));
+    const active = byId.get(id);
+    if (active && matchMedia('(max-width: 880px)').matches) {
+      active.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' });
+    }
+  };
+  const onScroll = () => {
+    const probe = innerHeight * 0.3;
+    let best = sections[0];
+    for (const s of sections) {
+      if (s.getBoundingClientRect().top <= probe) best = s;
+    }
+    setActive(best.id);
+  };
+  addEventListener('scroll', onScroll, { passive: true });
+  onScroll();
+})();
+</script>
+</body>
+</html>
