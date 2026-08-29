@@ -264,17 +264,23 @@ ${restCreatives
 ${
   deployments.length
     ? `<div class="table-scroll"><table>
-<tr><th>クリエイティブ</th><th>配信期間</th><th>状態</th><th>予算</th><th>キャンペーン</th></tr>
+<tr><th>クリエイティブ</th><th>配信期間</th><th>状態</th><th>予算</th><th>ポスト</th><th>キャンペーン</th></tr>
 ${deployments
   .map((d) => {
     const from = day(d.started_at) ?? day(d.created_at) ?? '—'
     const to = day(d.stopped_at)
     const period = to ? `${from} 〜 ${to}` : `${from} 〜 配信中`
     const st = STATUS_JA[String(d.status)] ?? esc(d.status)
-    return `<tr><td>#${d.creative_id} ${esc(d.concept ?? '')}</td><td class="num">${period}</td><td><span class="tag ${d.status === 'active' ? 'ok' : ''}">${st}</span></td><td class="num">${money(d.budget_usd)}/日</td><td class="num">${esc(d.campaign_id ?? '—')}</td></tr>`
+    return `<tr><td>#${d.creative_id} ${esc(d.concept ?? '')}</td><td class="num">${period}</td><td><span class="tag ${d.status === 'active' ? 'ok' : ''}">${st}</span></td><td class="num">${money(d.budget_usd)}/日</td><td>${d.post_url ? `<a href="${esc(d.post_url)}">Xで見る</a>` : '—'}</td><td class="num">${esc(d.campaign_id ?? '—')}</td></tr>`
   })
   .join('\n')}
-</table></div>`
+</table></div>
+${deployments
+  .filter((d) => d.post_url && d.status === 'active')
+  .slice(0, 2)
+  .map((d) => `<blockquote class="twitter-tweet" data-dnt="true"><a href="${esc(d.post_url)}"></a></blockquote>`)
+  .join('\n')}
+<script async src="https://platform.twitter.com/widgets.js" charset="utf-8"><\/script>`
     : '<p class="note">まだ配信履歴はありません。</p>'
 }
 

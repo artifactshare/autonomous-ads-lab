@@ -15,6 +15,8 @@ function migrate(db: Database.Database): void {
     if (!cols.some((c) => c.name === column)) db.exec(`alter table ${table} add column ${ddl}`)
   }
   addColumn('creatives', 'generation_request_id', 'generation_request_id text')
+  // Public URL of the promoted post; discovered automatically by daily ops.
+  addColumn('deployments', 'post_url', 'post_url text')
 }
 
 export function openDb(path: string = config.dbPath): Database.Database {

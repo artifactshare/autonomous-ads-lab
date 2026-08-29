@@ -131,3 +131,56 @@ Then output ONLY a JSON array (no fences) of at most 3 techniques: [{"name": "..
   }
   return notes
 }
+
+/**
+ * Find public post URLs for deployments that don't have one yet.
+ * The promoted post is created by Ads Manager and its URL is not returned to
+ * us anywhere, so we discover it: ask Grok to list recent posts from our own
+ * handle and match them to each creative's hook text.
+ */
+export async function discoverPostUrls(db: Database.Database, log: Logger): Promise<string[]> {
+  const missing = db
+    .prepare(
+      `select d.id as deployment_id, c.hook from deployments d
+       join creatives c on c.id = d.creative_id
+       where d.post_url is null and d.status in ('active', 'pending', 'paused')`,
+    )
+    .all() as { deployment_id: number; hook: string }[]
+  if (!missing.length) return []
+
+  const week = lastWeek()
+  const text = await runQuery(
+    db,
+    log,
+    'mentions',
+    `List the most recent posts from @artifactshare_ (last 30 days). Output ONLY a JSON array, no fences:
+[{"url": "https://x.com/artifactshare_/status/...", "text": "first 100 chars of the post"}]
+If none found, output [].`,
+    { xSearch: { ...week, fromDate: undefined, allowedHandles: ['artifactshare_'] } },
+  )
+  if (!text) return []
+
+  const notes: string[] = []
+  try {
+    const posts = JSON.parse(text.match(/\[[\s\S]*\]/)?.[0] ?? '[]') as { url?: string; text?: string }[]
+    const setUrl = db.prepare('update deployments set post_url = ? where id = ?')
+    for (const m of missing) {
+      // Match on the hook's first words: ad copy always opens with the hook.
+      const probe = m.hook.slice(0, 25).toLowerCase()
+      const hit = posts.find(
+        (p) =>
+          typeof p.url === 'string' &&
+          /^https:\/\/x\.com\/artifactshare_\/status\/\d+$/.test(p.url) &&
+          (p.text ?? '').toLowerCase().includes(probe),
+      )
+      if (hit) {
+        setUrl.run(hit.url, m.deployment_id)
+        log.decision(`post_url_discovered_deployment_${m.deployment_id}`, `matched hook prefix "${probe}"`, { url: hit.url })
+        notes.push(`post URL discovered for deployment ${m.deployment_id}: ${hit.url}`)
+      }
+    }
+  } catch {
+    log.warn('post_url_parse_failed')
+  }
+  return notes
+}
