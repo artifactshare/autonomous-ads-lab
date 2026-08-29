@@ -19,3 +19,31 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
       - run: pnpm test
+
+  budget-guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Hard budget limits are the project's single human gate. The expected
+      # values live HERE because GITHUB_TOKEN cannot modify workflow files,
+      # so neither the harness agent nor an external PR author can silently
+      # change both sides. Changing limits requires a human editing this file.
+      - name: Verify budget limits are untouched
+        run: |
+          node -e "
+          const src = require('fs').readFileSync('src/config.ts', 'utf8');
+          const expect = {
+            monthlyCreativeUsd: 10,
+            monthlyAdsUsd: 30,
+            monthlyAiUsd: 10,
+            dailyAdsCapUsd: 1.5,
+          };
+          for (const [k, v] of Object.entries(expect)) {
+            const m = src.match(new RegExp(k + String.raw\`:\s*([0-9.]+)\`));
+            if (!m || Number(m[1]) !== v) {
+              console.error('BUDGET GUARD FAILED: ' + k + ' expected ' + v + ' got ' + (m ? m[1] : 'missing'));
+              process.exit(1);
+            }
+          }
+          console.log('budget limits verified');
+          "
