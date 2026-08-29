@@ -3,16 +3,16 @@
 import { execFileSync } from 'node:child_process'
 import { writeFileSync } from 'node:fs'
 import { openDb } from '../db/index.ts'
-import { renderLivingReport } from './living-report.ts'
+import { renderLivingReportHtml } from './html.ts'
 
 const db = openDb()
-const md = renderLivingReport(db)
-writeFileSync('data/living-report.md', md)
+const md = renderLivingReportHtml(db)
+writeFileSync('data/living-report.html', md)
 db.close()
 
 const out = execFileSync(
   'npx',
-  ['--yes', '@artifactshare/cli', 'share', 'data/living-report.md', '--key', 'ads-lab-living-report', '--visibility', 'link', '--no-link-expiry', '--json'],
+  ['--yes', '@artifactshare/cli', 'share', 'data/living-report.html', '--key', 'ads-lab-living-report', '--visibility', 'link', '--no-link-expiry', '--json'],
   { encoding: 'utf8' },
 )
 const parsed = JSON.parse(out) as { data: { artifact: { url: string } }; ok: boolean }

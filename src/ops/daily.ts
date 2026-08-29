@@ -7,7 +7,7 @@ import { openDb } from '../db/index.ts'
 import { BudgetController } from '../budget/controller.ts'
 import { Logger } from '../logging/logger.ts'
 import { appendJournal } from '../reporting/journal.ts'
-import { renderLivingReport } from '../reporting/living-report.ts'
+import { renderLivingReportHtml } from '../reporting/html.ts'
 
 const log = Logger.newRun('logs/daily.jsonl')
 const db = openDb()
@@ -25,11 +25,11 @@ const done = [
 ]
 appendJournal({ actor: 'daily-ops (automated)', done, spent: [], learnings: [], next: [] })
 
-writeFileSync('data/living-report.md', renderLivingReport(db))
+writeFileSync('data/living-report.html', renderLivingReportHtml(db))
 if (process.env.ARTIFACTSHARE_TOKEN) {
   execFileSync(
     'npx',
-    ['--yes', '@artifactshare/cli', 'share', 'data/living-report.md', '--key', 'ads-lab-living-report', '--visibility', 'link', '--no-link-expiry', '--json'],
+    ['--yes', '@artifactshare/cli', 'share', 'data/living-report.html', '--key', 'ads-lab-living-report', '--visibility', 'link', '--no-link-expiry', '--json'],
     { encoding: 'utf8' },
   )
   log.info('living_report_published')

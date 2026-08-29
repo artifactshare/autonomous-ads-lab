@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Autonomous Ads Lab — Living Report</title>
+<style>
+  :root {
+    --bg: #faf9f7; --fg: #1a1a1a; --muted: #6b6b6b; --line: #e5e2dc;
+    --card: #ffffff; --accent: #c2410c; --ok: #15803d; --bad: #b91c1c;
+    --mono: "SF Mono", ui-monospace, Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #171614; --fg: #ece9e4; --muted: #9a968f; --line: #2e2c28;
+            --card: #201e1b; --accent: #fb923c; --ok: #4ade80; --bad: #f87171; }
+  }
+  * { box-sizing: border-box; margin: 0 }
+  body { background: var(--bg); color: var(--fg); font: 16px/1.65 -apple-system, "Segoe UI", sans-serif;
+         max-width: 880px; margin: 0 auto; padding: 48px 24px 96px }
+  h1 { font-size: 1.9rem; letter-spacing: -0.02em; margin-bottom: 4px }
+  h2 { font-size: 1.15rem; margin: 40px 0 12px; padding-top: 24px; border-top: 1px solid var(--line) }
+  .sub { color: var(--muted); margin-bottom: 8px }
+  .updated { color: var(--muted); font-size: 0.85rem; font-family: var(--mono) }
+  a { color: var(--accent) }
+  table { width: 100%; border-collapse: collapse; font-size: 0.92rem; margin-top: 8px }
+  th { text-align: left; color: var(--muted); font-weight: 600; font-size: 0.8rem;
+       text-transform: uppercase; letter-spacing: 0.05em; padding: 6px 10px 6px 0 }
+  td { padding: 8px 10px 8px 0; border-top: 1px solid var(--line); vertical-align: top }
+  .num { font-family: var(--mono); white-space: nowrap }
+  .bar { width: 120px; height: 6px; background: var(--line); border-radius: 3px; margin-top: 6px }
+  .bar-fill { height: 100%; background: var(--accent); border-radius: 3px }
+  .tag { display: inline-block; font-size: 0.75rem; padding: 1px 8px; border-radius: 99px; border: 1px solid var(--line) }
+  .tag.ok { color: var(--ok); border-color: var(--ok) }
+  .tag.bad { color: var(--bad); border-color: var(--bad) }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px 20px; margin: 10px 0 }
+  .card h3 { font-size: 0.98rem; margin-bottom: 4px }
+  .meta { color: var(--muted); font-size: 0.85rem }
+  .note { color: var(--muted); font-size: 0.9rem; font-style: italic }
+</style>
+</head>
+<body>
+<h1>Autonomous Ads Lab</h1>
+<p class="sub">An AI autonomously runs X ads for <a href="https://artifactshare.com">Artifact Share</a> and improves itself from real-world results. Failures are published, not hidden. Code &amp; full logs: <a href="https://github.com/artifactshare/autonomous-ads-lab">autonomous-ads-lab</a>.</p>
+<p class="updated">Updated 2026-08-29 09:21 UTC · report auto-generated from the Experience DB</p>
+
+<h2>Budget</h2>
+<table>
+<tr><th>Category</th><th>Spent (month)</th><th>Limit</th><th></th></tr>
+<tr><td>Creative</td><td class="num">$2.80</td><td class="num">$10</td><td><div class="bar"><div class="bar-fill" style="width:28.0%"></div></div></td></tr>
+<tr><td>X Ads</td><td class="num">$0.00</td><td class="num">$30</td><td><div class="bar"><div class="bar-fill" style="width:0.0%"></div></div></td></tr>
+<tr><td>AI / API</td><td class="num">$0.00</td><td class="num">$10</td><td><div class="bar"><div class="bar-fill" style="width:0.0%"></div></div></td></tr>
+<tr><td>Ads today</td><td class="num">$0.00</td><td class="num">$1.5/day</td><td><div class="bar"><div class="bar-fill" style="width:0.0%"></div></div></td></tr>
+</table>
+
+<h2>Experiments</h2>
+<div class="card"><h3>#1 — First real X ad: find a creative that makes AI-native devs click</h3>
+<p class="meta">status: running</p>
+<p>Pain-first framing (&quot;AI made the file, sharing is still manual&quot;) beats product-feature framing for AI coding agent users</p></div>
+
+<h2>Creatives</h2>
+<table>
+<tr><th>#</th><th>Role</th><th>Concept</th><th>AI score</th><th>Cost</th><th>Verdict</th></tr>
+<tr><td class="num">1</td><td>challenger</td><td>Pain montage: the manual sharing loop</td><td class="num">4</td><td class="num">$0.40</td><td><span class="tag ok">qualified</span></td></tr>
+<tr><td class="num">2</td><td>challenger</td><td>Transformation: one link, live updates</td><td class="num">3.5</td><td class="num">$0.40</td><td><span class="tag ok">qualified</span></td></tr>
+<tr><td class="num">3</td><td>challenger</td><td>Absurdist: final_v7 file multiplication</td><td class="num">4.5</td><td class="num">$0.40</td><td><span class="tag ok">qualified</span></td></tr>
+</table>
+<p class="note">AI scores are predictions. They will be compared against actual CTR once enough data accrues.</p>
+
+<h2>Deployments</h2>
+<div class="card"><h3>Creative 3 on x <span class="tag ok">active</span></h3>
+<p class="meta">campaign 42298216 · started 2026-08-29 · budget $1.50/day</p></div>
+
+<h2>Learnings</h2>
+<div class="card"><h3>Creatives without visible product UI cap around 4/10 on product_clarity</h3>
+<p class="meta">confidence: medium</p>
+<p>Abstract-UI-only prompts protect against garbled text but hide the product</p></div>
+<div class="card"><h3>Retrying a paid generation on fetch failure re-charges</h3>
+<p class="meta">confidence: high</p>
+<p>Persist provider request_id immediately after submit; retry = collect, not re-submit</p></div>
+<div class="card"><h3>H3 Max garbles all rendered UI/on-screen text</h3>
+<p class="meta">confidence: high</p>
+<p>Burn all must-read copy (brand, URL, CTA) in post with ffmpeg drawtext</p></div>
+
+<h2>Current status</h2>
+<div class="card">
+<p>X Ads API access: application submitted, awaiting approval (weeks-to-months is normal). First deployment was made manually via X Ads Manager and is live.</p>
+</div>
+</body>
+</html>
