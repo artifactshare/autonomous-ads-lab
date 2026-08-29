@@ -27,6 +27,7 @@ create table if not exists creatives (
   seed integer,
   generation_model text,
   generation_settings text, -- JSON
+  generation_request_id text, -- provider job id, persisted before polling for crash recovery
   asset_url text,
   generation_cost_usd real,
   generation_latency_ms integer

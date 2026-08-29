@@ -29,20 +29,40 @@ export class H3MaxGenerator implements VideoGenerator {
     return perSec * spec.durationSec
   }
 
-  async generate(spec: VideoSpec): Promise<GenerationResult> {
-    const settings = {
+  private buildSettings(spec: VideoSpec) {
+    return {
       prompt: spec.prompt,
       aspect_ratio: spec.aspectRatio,
       duration: spec.durationSec,
       resolution: spec.resolution ?? '768P',
       ...(spec.seed !== undefined ? { seed: spec.seed } : {}),
     }
-    const started = Date.now()
+  }
 
-    const submit = await this.request(QUEUE_BASE, { method: 'POST', body: JSON.stringify(settings) })
+  /** Submit only. Persist the returned request id BEFORE polling so a crash
+   *  or polling failure can be recovered without re-submitting (= re-paying). */
+  async submit(spec: VideoSpec): Promise<string> {
+    const submit = await this.request(QUEUE_BASE, {
+      method: 'POST',
+      body: JSON.stringify(this.buildSettings(spec)),
+    })
     const requestId = (submit as { request_id: string }).request_id
     if (!requestId) throw new Error(`fal submit failed: ${JSON.stringify(submit)}`)
+    return requestId
+  }
 
+  async generate(spec: VideoSpec): Promise<GenerationResult> {
+    const started = Date.now()
+    const requestId = await this.submit(spec)
+    return this.awaitResult(requestId, spec, started)
+  }
+
+  async awaitResult(
+    requestId: string,
+    spec: VideoSpec,
+    started: number = Date.now(),
+  ): Promise<GenerationResult> {
+    const settings = this.buildSettings(spec)
     const statusUrl = `${REQUESTS_BASE}/${requestId}/status`
     let responseUrl: string | undefined
     // 10 min timeout: generation is normally seconds, so this indicates a stuck job.
