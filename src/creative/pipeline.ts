@@ -8,6 +8,7 @@ import type { VideoSpec } from '../generation/types.ts'
 import { extractFrames } from '../evaluation/frames.ts'
 import { Evaluator } from '../evaluation/evaluator.ts'
 import { CreativeRepo, type NewCreative } from './repo.ts'
+import { applyOverlay, type OverlayText } from './overlay.ts'
 
 /**
  * Generate + evaluate one creative, end to end, with budget authorization,
@@ -18,7 +19,8 @@ export async function produceCreative(
   log: Logger,
   creative: NewCreative,
   video: Omit<VideoSpec, 'prompt' | 'seed'>,
-): Promise<{ creativeId: number; disqualified: boolean; overall: number }> {
+  overlay?: OverlayText,
+): Promise<{ creativeId: number; disqualified: boolean; overall: number; videoPath: string }> {
   const repo = new CreativeRepo(db)
   const budget = new BudgetController(db)
   const gen = new H3MaxGenerator()
@@ -53,8 +55,11 @@ export async function produceCreative(
   // Evaluate from evenly spaced frames.
   const workDir = `data/creatives/${creativeId}`
   mkdirSync(workDir, { recursive: true })
-  const videoPath = `${workDir}/video.mp4`
-  execFileSync('curl', ['-sfL', '-o', videoPath, result.assetUrl])
+  const rawPath = `${workDir}/raw.mp4`
+  execFileSync('curl', ['-sfL', '-o', rawPath, result.assetUrl])
+  // Readable copy (brand/CTA) is burned in post; the evaluation must see the
+  // final ad, not the raw generation.
+  const videoPath = overlay ? applyOverlay(rawPath, `${workDir}/final.mp4`, overlay) : rawPath
   const frames = extractFrames(videoPath, `${workDir}/frames`)
   const scores = await evaluator.evaluate(frames, creative)
   repo.recordEvaluation(creativeId, evaluator.harnessVersion, scores)
@@ -64,5 +69,5 @@ export async function produceCreative(
     failureModes: scores.failure_modes,
   })
 
-  return { creativeId, disqualified: scores.disqualified, overall: scores.overall_score }
+  return { creativeId, disqualified: scores.disqualified, overall: scores.overall_score, videoPath }
 }
