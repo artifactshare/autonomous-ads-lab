@@ -30,9 +30,16 @@ jobs:
           ARTIFACTSHARE_TOKEN: ${{ secrets.ARTIFACTSHARE_TOKEN }}
           XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
       - name: Commit Experience DB changes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config user.name "ads-lab-bot"
           git config user.email "actions@github.com"
           git add data/ journal/
-          git diff --cached --quiet || git commit -m "daily: experience db update [skip ci]"
-          git push
+          if git diff --cached --quiet; then exit 0; fi
+          BRANCH="auto/${GITHUB_WORKFLOW// /-}-$(date +%Y%m%d-%H%M%S)"
+          git checkout -b "$BRANCH"
+          git commit -m "${GITHUB_WORKFLOW}: experience db + journal update"
+          git push origin "$BRANCH"
+          gh pr create --fill --head "$BRANCH"
+          gh pr merge --auto --squash "$BRANCH"
