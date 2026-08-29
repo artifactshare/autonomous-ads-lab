@@ -72,7 +72,7 @@ ${framePaths.map((p) => `- ${p}`).join('\n')}`
 
     const q = query({
       prompt,
-      options: { model: modelFor('evaluation'), allowedTools: ['Read'], maxTurns: framePaths.length + 4 },
+      options: { ...modelFor('evaluation'), allowedTools: ['Read'], maxTurns: framePaths.length + 4 },
     })
     let text = ''
     for await (const m of q) {

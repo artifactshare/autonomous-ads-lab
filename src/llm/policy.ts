@@ -31,12 +31,21 @@ export const FABLE_CALLS_PER_WEEK = 3
 
 let fableCallsThisRun = 0
 
-export function modelFor(role: LlmRole): string {
+export interface ModelChoice {
+  model: string
+  /** Reasoning effort: fable runs at 'low' (its base judgment is the point,
+   *  and weekly limit is tight); everything else at 'high'. */
+  effort: 'low' | 'high'
+}
+
+export function modelFor(role: LlmRole): ModelChoice {
+  let model = MODEL_FOR_ROLE[role]
   if (role === 'hypothesis') {
     fableCallsThisRun += 1
-    if (fableCallsThisRun > FABLE_CALLS_PER_WEEK) return MODEL_FOR_ROLE.analysis
+    if (fableCallsThisRun > FABLE_CALLS_PER_WEEK) model = MODEL_FOR_ROLE.analysis
   }
-  return MODEL_FOR_ROLE[role]
+  const effort = model === 'claude-fable-5' ? 'low' : 'high'
+  return { model, effort }
 }
 
 export function resetFableCounter(): void {
