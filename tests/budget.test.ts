@@ -67,6 +67,46 @@ describe('BudgetController', () => {
     expect(bc.authorize({ ...base, category: 'creative', amountUsd: 0.01 }).ok).toBe(false)
   })
 
+  it('reconciles an estimate down to the actual cost, freeing headroom', () => {
+    const bc = setup()
+    const a = bc.authorize({ ...base, category: 'ai', amountUsd: 0.1 })
+    expect(a.ok).toBe(true)
+    if (!a.ok) return
+    const rec = bc.reconcile(a.ledgerId, 0.0226)
+    expect(rec).toMatchObject({ ok: true })
+    if (rec.ok) expect(rec.deltaUsd).toBeCloseTo(-0.0774, 6)
+    expect(bc.status().month.ai.spent).toBeCloseTo(0.0226, 6)
+  })
+
+  it('reconciles upward and makes the next authorize stricter', () => {
+    const bc = setup()
+    const a = bc.authorize({ ...base, category: 'creative', amountUsd: 1 })
+    if (!a.ok) throw new Error('setup failed')
+    bc.reconcile(a.ledgerId, 9.8)
+    expect(bc.status().month.creative.spent).toBeCloseTo(9.8, 6)
+    // Only $0.20 of the $10 monthly creative budget is left.
+    expect(bc.authorize({ ...base, category: 'creative', amountUsd: 0.5 }).ok).toBe(false)
+  })
+
+  it('rejects invalid reconcile amounts and unknown ledger ids', () => {
+    const bc = setup()
+    const a = bc.authorize({ ...base, category: 'ai', amountUsd: 0.1 })
+    if (!a.ok) throw new Error('setup failed')
+    expect(bc.reconcile(a.ledgerId, -1).ok).toBe(false)
+    expect(bc.reconcile(a.ledgerId, Number.NaN).ok).toBe(false)
+    expect(bc.reconcile(99999, 0.05).ok).toBe(false)
+    // A rejected reconcile leaves the original estimate untouched.
+    expect(bc.status().month.ai.spent).toBeCloseTo(0.1, 6)
+  })
+
+  it('allows reconciling to zero (nothing was actually billed)', () => {
+    const bc = setup()
+    const a = bc.authorize({ ...base, category: 'ai', amountUsd: 0.1 })
+    if (!a.ok) throw new Error('setup failed')
+    expect(bc.reconcile(a.ledgerId, 0).ok).toBe(true)
+    expect(bc.status().month.ai.spent).toBe(0)
+  })
+
   it('reports status', () => {
     const bc = setup()
     bc.authorize({ ...base, category: 'ads', amountUsd: 1.2 })

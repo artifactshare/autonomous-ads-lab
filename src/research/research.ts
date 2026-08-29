@@ -32,9 +32,20 @@ async function runQuery(
   try {
     const r = await grokQuery(prompt, opts)
     repo.recordObservation({ kind, query: prompt.slice(0, 200), source: 'grok', summary: r.text, raw: { toolCalls: r.toolCalls, usage: r.usage }, costUsd: r.costUsd, runId: log.runId })
+    // The authorize() above charged a flat conservative estimate. Grok reports
+    // the real token/tool usage, so correct the ledger to what we actually
+    // spent -- otherwise the AI cap fires ~3x early. Skipped for duplicates:
+    // that ledger row belongs to an earlier, already-paid action.
+    if (!auth.duplicate) {
+      const rec = budget.reconcile(auth.ledgerId, r.costUsd)
+      if (rec.ok) log.info('budget_reconciled', { kind, ledgerId: auth.ledgerId, actualUsd: r.costUsd, deltaUsd: rec.deltaUsd })
+      else log.warn('budget_reconcile_failed', { kind, ledgerId: auth.ledgerId, reason: rec.reason })
+    }
     log.info('research_observation', { kind, toolCalls: r.toolCalls, costUsd: r.costUsd })
     return r.text
   } catch (err) {
+    // Deliberately leave the estimate charged: a failure may still have cost
+    // money upstream (e.g. timeout after the request was billed). Fail closed.
     log.error('research_failed', { kind, error: String(err) })
     return null
   }
@@ -54,6 +65,35 @@ Summarize: how many posts, who is talking, sentiment, any reactions to ads or th
   )
   if (mentions) notes.push(`mentions: ${mentions.slice(0, 300)}`)
   return notes
+}
+
+/** Max techniques stored from a single ad_trends response. */
+const MAX_TECHNIQUES_PER_RUN = 3
+
+/**
+ * Parse an ad_trends response into techniques and store them.
+ * Returns how many were ACTUALLY stored -- entries past the cap, or missing a
+ * name/hypothesis, are dropped, so the response's array length would overstate
+ * what the technique library holds. That count goes into the public journal.
+ * Throws if the response contains no parseable JSON array.
+ */
+export function recordTechniques(repo: ResearchRepo, text: string): number {
+  const arr = JSON.parse(text.match(/\[[\s\S]*\]/)?.[0] ?? '[]') as Record<string, string>[]
+  if (!Array.isArray(arr)) throw new Error('techniques response was not a JSON array')
+  let recorded = 0
+  for (const t of arr.slice(0, MAX_TECHNIQUES_PER_RUN)) {
+    if (!t.name || !t.hypothesis) continue
+    repo.addTechnique({
+      name: t.name,
+      source: t.source ?? 'grok research',
+      description: t.description ?? '',
+      hypothesis: t.hypothesis,
+      implementationHint: t.implementation_hint,
+      applicableDomains: ['artifact_share'],
+    })
+    recorded += 1
+  }
+  return recorded
 }
 
 /** Weekly: pain points + ad trends -> candidate techniques (evidence-gated). */
@@ -82,19 +122,8 @@ Then output ONLY a JSON array (no fences) of at most 3 techniques: [{"name": "..
   )
   if (trends) {
     try {
-      const arr = JSON.parse(trends.match(/\[[\s\S]*\]/)?.[0] ?? '[]') as Record<string, string>[]
-      for (const t of arr.slice(0, 3)) {
-        if (!t.name || !t.hypothesis) continue
-        repo.addTechnique({
-          name: t.name,
-          source: t.source ?? 'grok research',
-          description: t.description ?? '',
-          hypothesis: t.hypothesis,
-          implementationHint: t.implementation_hint,
-          applicableDomains: ['artifact_share'],
-        })
-      }
-      notes.push(`ad_trends: recorded ${arr.length} candidate technique(s) (status=discovered; validation requires experiments)`)
+      const recorded = recordTechniques(repo, trends)
+      notes.push(`ad_trends: recorded ${recorded} candidate technique(s) (status=discovered; validation requires experiments)`)
     } catch {
       log.warn('technique_parse_failed')
       notes.push('ad_trends: response was not parseable as techniques JSON')
