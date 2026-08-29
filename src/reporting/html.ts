@@ -78,6 +78,15 @@ export function renderLivingReportHtml(db: Database.Database): string {
     : 0
   const totalVariable = budget.month.creative.spent + budget.month.ads.spent + budget.month.ai.spent
 
+  // The ledger includes spend that never became a listed creative (pipeline
+  // tests, duplicate-submission incidents). Surface the delta so the budget
+  // table always reconciles with the creative list, whatever happens later.
+  const listedCreativeCost = creatives.reduce(
+    (sum, c) => sum + (typeof c.generation_cost_usd === 'number' ? c.generation_cost_usd : 0),
+    0,
+  )
+  const unlistedCreativeCost = Math.max(0, budget.month.creative.spent - listedCreativeCost)
+
   const budgetRows = [
     ['クリエイティブ生成', budget.month.creative.spent, config.budget.monthlyCreativeUsd],
     ['X広告配信', budget.month.ads.spent, config.budget.monthlyAdsUsd],
@@ -190,6 +199,11 @@ ${budgetRows
   .join('\n')}
 <tr><td>本日の広告支出</td><td class="num">${money(budget.today.ads.spent)}</td><td class="num">$${config.budget.dailyAdsCapUsd}/日</td><td>${bar(budget.today.ads.spent, config.budget.dailyAdsCapUsd)}</td></tr>
 </table></div>
+${
+  unlistedCreativeCost > 0.005
+    ? `<p class="note">クリエイティブ生成 ${money(budget.month.creative.spent)} のうち、下の一覧に載っている動画の分は ${money(listedCreativeCost)}。残り ${money(unlistedCreativeCost)} はパイプライン検証や重複生成事故など、作品にならなかった支出です(失敗分も隠さず計上しています。経緯はリポジトリのjournal参照)。</p>`
+    : ''
+}
 <p class="note">別途固定費: X Premium ¥459/月(3ヶ月目から¥918/月)。広告配信の必須条件。</p>
 
 <h2>実験</h2>
