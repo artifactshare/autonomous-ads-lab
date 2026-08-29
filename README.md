@@ -3,6 +3,7 @@
 An open experiment: **can AI-native autonomous ad operations produce real results in a real overseas market?**
 
 📊 **[Living Report](https://artifactshare.com/a/a68uv6pu0e)** — live status, budget, creatives, AI predictions vs actual results. Updated automatically at the same URL.
+📋 **[企画書 / Project plan](https://artifactshare.com/a/m9gn48oo9z)** — the original plan behind this experiment (Japanese). The in-repo engineering handover is [HANDOVER.md](HANDOVER.md).
 
 The first subject is [Artifact Share](https://artifactshare.com). AI autonomously runs X (Twitter) ads targeting English-speaking AI-native users, cycling through:
 
