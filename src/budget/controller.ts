@@ -86,6 +86,34 @@ export class BudgetController {
     return tx.immediate()
   }
 
+  /**
+   * Replace an authorize-time estimate with the actual cost, once known.
+   *
+   * The ledger gates future spend, so an estimate that never gets corrected
+   * makes the cap fire early (over-estimate) or late (under-estimate). This
+   * only rewrites an existing row; it is never a way to spend past a limit,
+   * because authorize() has already run for this action. If the actual came
+   * in HIGHER than the estimate the row goes up, which correctly makes the
+   * next authorize() stricter.
+   *
+   * Do not call this for a duplicate (idempotent) authorization: that row
+   * belongs to an earlier, already-paid action.
+   */
+  reconcile(ledgerId: number, actualUsd: number): { ok: true; deltaUsd: number } | { ok: false; reason: string } {
+    if (!Number.isFinite(actualUsd) || actualUsd < 0) {
+      return { ok: false, reason: 'actual amount must be a finite, non-negative number' }
+    }
+    const tx = this.db.transaction((): { ok: true; deltaUsd: number } | { ok: false; reason: string } => {
+      const row = this.db
+        .prepare('select amount_usd from budget_ledger where id = ?')
+        .get(ledgerId) as { amount_usd: number } | undefined
+      if (!row) return { ok: false, reason: `ledger entry ${ledgerId} not found` }
+      this.db.prepare('update budget_ledger set amount_usd = ? where id = ?').run(actualUsd, ledgerId)
+      return { ok: true, deltaUsd: actualUsd - row.amount_usd }
+    })
+    return tx.immediate()
+  }
+
   status() {
     const month = this.monthStart()
     const day = this.dayStart()
