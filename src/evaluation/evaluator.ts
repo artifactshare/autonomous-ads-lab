@@ -1,4 +1,5 @@
 import { query } from '@anthropic-ai/claude-agent-sdk'
+import { modelFor } from '../llm/policy.ts'
 
 export interface CreativeContext {
   concept: string
@@ -71,7 +72,7 @@ ${framePaths.map((p) => `- ${p}`).join('\n')}`
 
     const q = query({
       prompt,
-      options: { allowedTools: ['Read'], maxTurns: framePaths.length + 4 },
+      options: { model: modelFor('evaluation'), allowedTools: ['Read'], maxTurns: framePaths.length + 4 },
     })
     let text = ''
     for await (const m of q) {
