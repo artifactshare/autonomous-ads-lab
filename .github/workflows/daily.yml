@@ -1,0 +1,35 @@
+name: Daily Ops
+on:
+  schedule:
+    - cron: '0 22 * * *' # 07:00 JST daily (best effort; GH cron can lag)
+  workflow_dispatch:
+
+concurrency:
+  group: ads-lab-ops # shared with weekly.yml: never run two ops jobs at once
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  daily:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # Placeholder until Phase 5: real daily loop (metrics -> decide -> act).
+      - run: pnpm db:init
+      - name: Commit Experience DB changes
+        run: |
+          git config user.name "ads-lab-bot"
+          git config user.email "actions@github.com"
+          git add data/
+          git diff --cached --quiet || git commit -m "daily: experience db update [skip ci]"
+          git push

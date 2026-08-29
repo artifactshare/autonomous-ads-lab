@@ -1,0 +1,35 @@
+name: Weekly Learning
+on:
+  schedule:
+    - cron: '0 23 * * 0' # Monday 08:00 JST
+  workflow_dispatch:
+
+concurrency:
+  group: ads-lab-ops
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  weekly:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # Placeholder until Phase 5-6: learning extraction + living report update.
+      - run: pnpm db:init
+      - name: Commit Experience DB changes
+        run: |
+          git config user.name "ads-lab-bot"
+          git config user.email "actions@github.com"
+          git add data/
+          git diff --cached --quiet || git commit -m "weekly: learning update [skip ci]"
+          git push
