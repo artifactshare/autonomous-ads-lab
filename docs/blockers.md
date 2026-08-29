@@ -1,5 +1,15 @@
 # ブロッカー調査結果 (2026-08-29)
 
+## 進捗 (2026-08-29 実施済み)
+
+- [x] X developer account 作成（@artifactshare_ / アカウント名 "Artifact Share"、PPU Pilot契約に同意）
+- [x] Developer App 作成済み: **App ID 33371617**（Default Project, Pay Per Use, active。consumer key発行済み、access token / bearer は未生成）
+- [x] **Ads API Access Form 送信完了**（Standard相当、"Success! Someone from the X Developer Platform will reach out shortly."）
+- [x] 広告アカウント作成確認: **account ID `18ce55x0rpo`**（ads.x.com、Ads Manager操作可能）
+- [ ] 広告アカウントの支払い方法設定（カード入力は人間作業）
+- [ ] fal.ai アカウント作成 + `FAL_KEY` 発行（人間作業）
+- [ ] Ads API承認待ち。1週間応答なければ devcommunity へ催促スレッド
+
 ## 1. X Ads API
 
 - 申請フロー: developer account (console.x.com) → Developer App 作成 → [Ads API Access Form](https://docs.x.com/forms/ads-api-access) で App ごとに申請。手順正本: [Step-by-step guide](https://docs.x.com/x-ads-api/getting-started/step-by-step-guide)
