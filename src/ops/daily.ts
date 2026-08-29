@@ -23,6 +23,12 @@ const done = [
   `budget check: creative $${budget.month.creative.spent.toFixed(2)}/$${budget.month.creative.limit}, ads $${budget.month.ads.spent.toFixed(2)}/$${budget.month.ads.limit} (today $${budget.today.ads.spent.toFixed(2)}/$${budget.today.ads.limit})`,
   `${deployments.n} active deployment(s); metrics retrieval not yet automated (Ads API approval pending)`,
 ]
+if (process.env.XAI_API_KEY) {
+  const { dailyObservation } = await import('../research/research.ts')
+  done.push(...(await dailyObservation(db, log)))
+} else {
+  log.warn('research_skipped', { reason: 'XAI_API_KEY not set' })
+}
 appendJournal({ actor: 'daily-ops (automated)', done, spent: [], learnings: [], next: [] })
 
 writeFileSync('data/living-report.html', renderLivingReportHtml(db))

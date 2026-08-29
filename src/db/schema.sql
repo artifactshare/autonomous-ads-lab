@@ -91,6 +91,36 @@ create table if not exists learnings (
   recommended_action text
 );
 
+-- Research: raw observations from Grok / web (daily monitoring + weekly research).
+create table if not exists research_observations (
+  id integer primary key,
+  created_at text not null default (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  kind text not null,          -- 'mentions' | 'pain_points' | 'ad_trends' | 'techniques'
+  query text not null,
+  source text not null,        -- 'grok' | 'web'
+  summary text not null,
+  raw text,                    -- JSON: citations, source posts
+  cost_usd real not null default 0,
+  run_id text not null
+);
+
+-- Technique Library: normalized, evidence-gated knowledge.
+-- Popularity is not validation: discovered -> experimental -> validated | rejected.
+create table if not exists techniques (
+  id integer primary key,
+  discovered_at text not null default (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  name text not null,
+  source text not null,
+  description text not null,
+  applicable_domains text,     -- JSON array
+  hypothesis text not null,
+  implementation_hint text,
+  evidence text,
+  confidence text not null default 'low',
+  status text not null default 'discovered', -- discovered | experimental | validated | rejected
+  observation_id integer references research_observations(id)
+);
+
 -- Budget ledger: append-only record of every authorized spend.
 create table if not exists budget_ledger (
   id integer primary key,

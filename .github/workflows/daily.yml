@@ -28,6 +28,7 @@ jobs:
       - run: pnpm tsx src/ops/daily.ts
         env:
           ARTIFACTSHARE_TOKEN: ${{ secrets.ARTIFACTSHARE_TOKEN }}
+          XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
       - name: Commit Experience DB changes
         run: |
           git config user.name "ads-lab-bot"

@@ -25,9 +25,10 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       # Placeholder until Phase 5-6: learning extraction + living report update.
-      - run: pnpm tsx src/ops/daily.ts
+      - run: pnpm tsx src/ops/weekly.ts
         env:
           ARTIFACTSHARE_TOKEN: ${{ secrets.ARTIFACTSHARE_TOKEN }}
+          XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
       - name: Commit Experience DB changes
         run: |
           git config user.name "ads-lab-bot"
