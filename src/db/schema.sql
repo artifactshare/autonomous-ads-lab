@@ -121,6 +121,19 @@ create table if not exists techniques (
   observation_id integer references research_observations(id)
 );
 
+-- Harness self-modification history (Phase 8). Every autonomous change to the
+-- harness itself is recorded here for auditability and rollback.
+create table if not exists harness_versions (
+  id integer primary key,
+  created_at text not null default (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  change_type text not null,   -- 'fix' | 'improvement' | 'policy_change'
+  description text not null,
+  reason text not null,
+  pr_url text,
+  commit_sha text,
+  status text not null default 'deployed' -- proposed | deployed | rolled_back
+);
+
 -- Budget ledger: append-only record of every authorized spend.
 create table if not exists budget_ledger (
   id integer primary key,
