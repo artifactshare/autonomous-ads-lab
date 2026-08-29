@@ -5,3 +5,6 @@ data/*.db-wal
 data/*.db-shm
 logs/
 data/*.mp4
+data/creatives/*/raw.mp4
+data/creatives/*/frames/
+data/testeval-frames/
