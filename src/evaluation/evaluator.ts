@@ -24,7 +24,7 @@ export interface EvaluationScores {
 const HARNESS_VERSION = 'v0'
 
 const RUBRIC = `You are a strict advertising creative evaluator for short video ads.
-The product is Artifact Share (https://artifactshare.net): share one URL for an
+The product is Artifact Share (https://artifactshare.com): share one URL for an
 AI-generated artifact, get comments, let AI update it at the same URL.
 Target audience: English-speaking developers using AI coding agents.
 

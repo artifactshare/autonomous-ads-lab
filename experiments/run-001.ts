@@ -20,7 +20,7 @@ log.child({ experimentId }).info('experiment_created')
 
 // Visual prompts deliberately avoid readable UI text (H3 Max garbles it);
 // all copy is burned in post via overlay.
-const brand = 'artifactshare.net'
+const brand = 'artifactshare.com'
 const candidates = [
   {
     concept: 'Pain montage: the manual sharing loop',
@@ -42,7 +42,7 @@ const candidates = [
     concept: 'Absurdist: final_v7 file multiplication',
     hook: 'final_v2. final_v3. final_final. final_v7.',
     message: 'Version-suffix chaos is a choice. So is one living URL.',
-    cta: 'One URL that updates - artifactshare.net',
+    cta: 'One URL that updates - artifactshare.com',
     prompt:
       'Comedic cinematic ad. A desktop folder overflows: duplicate file icons multiply absurdly across the screen and spill out of the monitor onto the physical desk as physical paper files, stacking into a teetering tower while a developer watches in deadpan horror. Practical-effect surrealism, crisp lighting, wide angle final shot of the buried desk. No readable text, file icons are abstract.',
   },

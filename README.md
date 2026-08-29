@@ -2,7 +2,7 @@
 
 An open experiment: **can AI-native autonomous ad operations produce real results in a real overseas market?**
 
-The first subject is [Artifact Share](https://artifactshare.net). AI autonomously runs X (Twitter) ads targeting English-speaking AI-native users, cycling through:
+The first subject is [Artifact Share](https://artifactshare.com). AI autonomously runs X (Twitter) ads targeting English-speaking AI-native users, cycling through:
 
 ```text
 Hypothesis → Create → Evaluate → Deploy → Observe → Learn → Improve
