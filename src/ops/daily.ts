@@ -24,8 +24,9 @@ const done = [
   `${deployments.n} active deployment(s); metrics retrieval not yet automated (Ads API approval pending)`,
 ]
 if (process.env.XAI_API_KEY) {
-  const { dailyObservation } = await import('../research/research.ts')
+  const { dailyObservation, discoverPostUrls } = await import('../research/research.ts')
   done.push(...(await dailyObservation(db, log)))
+  done.push(...(await discoverPostUrls(db, log)))
 } else {
   log.warn('research_skipped', { reason: 'XAI_API_KEY not set' })
 }

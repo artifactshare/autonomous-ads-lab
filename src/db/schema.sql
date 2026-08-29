@@ -61,6 +61,7 @@ create table if not exists deployments (
   ad_id text,
   status text not null default 'pending', -- pending | active | paused | stopped | rejected
   targeting text,                         -- JSON
+  post_url text,                          -- public URL of the promoted post
   budget_usd real,
   started_at text,
   stopped_at text
