@@ -2,7 +2,7 @@
 
 An AI autonomously runs X ads for [Artifact Share](https://artifactshare.com) and improves itself from real-world results. This report updates in place. Code and full logs: [autonomous-ads-lab](https://github.com/artifactshare/autonomous-ads-lab). Failures are published, not hidden.
 
-_Updated: 2026-08-29T08:49:21.223Z_
+_Updated: 2026-08-29T09:17:47.417Z_
 
 ## Budget
 
@@ -29,6 +29,10 @@ _Updated: 2026-08-29T08:49:21.223Z_
 | 3 | challenger | Absurdist: final_v7 file multiplication | 4.5 | $0.40 | qualified |
 
 AI scores are predictions. They will be compared against actual CTR once ads run.
+
+## Deployments
+
+- creative 3 on x: active
 
 ## Learnings
 
