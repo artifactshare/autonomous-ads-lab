@@ -1,89 +1,206 @@
 <!doctype html>
-<html lang="en">
+<html lang="ja">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Autonomous Ads Lab — Living Report</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 <style>
   :root {
     --bg: #faf9f7; --fg: #1a1a1a; --muted: #6b6b6b; --line: #e5e2dc;
-    --card: #ffffff; --accent: #c2410c; --ok: #15803d; --bad: #b91c1c;
+    --card: #ffffff; --accent: #c2410c; --accent-soft: rgba(194,65,12,.16);
+    --ok: #15803d; --bad: #b91c1c;
     --mono: "SF Mono", ui-monospace, Menlo, monospace;
   }
   @media (prefers-color-scheme: dark) {
     :root { --bg: #171614; --fg: #ece9e4; --muted: #9a968f; --line: #2e2c28;
-            --card: #201e1b; --accent: #fb923c; --ok: #4ade80; --bad: #f87171; }
+            --card: #201e1b; --accent: #fb923c; --accent-soft: rgba(251,146,60,.18);
+            --ok: #4ade80; --bad: #f87171; }
   }
   * { box-sizing: border-box; margin: 0 }
-  body { background: var(--bg); color: var(--fg); font: 16px/1.65 -apple-system, "Segoe UI", sans-serif;
-         max-width: 880px; margin: 0 auto; padding: 48px 24px 96px }
-  h1 { font-size: 1.9rem; letter-spacing: -0.02em; margin-bottom: 4px }
-  h2 { font-size: 1.15rem; margin: 40px 0 12px; padding-top: 24px; border-top: 1px solid var(--line) }
-  .sub { color: var(--muted); margin-bottom: 8px }
-  .updated { color: var(--muted); font-size: 0.85rem; font-family: var(--mono) }
+  body { background: var(--bg); color: var(--fg);
+         font: 16px/1.8 -apple-system, "Hiragino Sans", "Yu Gothic", "Noto Sans JP", "Segoe UI", sans-serif;
+         word-break: auto-phrase; overflow-wrap: anywhere;
+         max-width: 920px; margin: 0 auto; padding: 44px 22px 96px }
+  h1 { font-size: 2rem; letter-spacing: -0.02em; margin-bottom: 4px }
+  h2 { font-size: 1.2rem; margin: 48px 0 14px; padding-top: 28px; border-top: 1px solid var(--line) }
+  .sub { color: var(--muted); margin-bottom: 8px; font-size: .95rem }
+  .updated { color: var(--muted); font-size: 0.82rem; font-family: var(--mono) }
   a { color: var(--accent) }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; margin-top: 22px }
+  .tile { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px }
+  .tile .v { font-family: var(--mono); font-size: 1.5rem; font-weight: 700; letter-spacing: -0.02em }
+  .tile .k { color: var(--muted); font-size: 0.78rem; margin-top: 2px }
+  .tile.live .v { color: var(--ok) }
   table { width: 100%; border-collapse: collapse; font-size: 0.92rem; margin-top: 8px }
-  th { text-align: left; color: var(--muted); font-weight: 600; font-size: 0.8rem;
-       text-transform: uppercase; letter-spacing: 0.05em; padding: 6px 10px 6px 0 }
+  th { text-align: left; color: var(--muted); font-weight: 600; font-size: 0.78rem;
+       letter-spacing: 0.05em; padding: 6px 10px 6px 0; white-space: nowrap }
   td { padding: 8px 10px 8px 0; border-top: 1px solid var(--line); vertical-align: top }
+  .table-scroll { overflow-x: auto }
   .num { font-family: var(--mono); white-space: nowrap }
   .bar { width: 120px; height: 6px; background: var(--line); border-radius: 3px; margin-top: 6px }
   .bar-fill { height: 100%; background: var(--accent); border-radius: 3px }
-  .tag { display: inline-block; font-size: 0.75rem; padding: 1px 8px; border-radius: 99px; border: 1px solid var(--line) }
+  .tag { display: inline-block; font-size: 0.74rem; padding: 1px 8px; border-radius: 99px; border: 1px solid var(--line); white-space: nowrap }
   .tag.ok { color: var(--ok); border-color: var(--ok) }
   .tag.bad { color: var(--bad); border-color: var(--bad) }
-  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px 20px; margin: 10px 0 }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px 20px; margin: 10px 0 }
   .card h3 { font-size: 0.98rem; margin-bottom: 4px }
-  .meta { color: var(--muted); font-size: 0.85rem }
+  .meta { color: var(--muted); font-size: 0.84rem }
   .note { color: var(--muted); font-size: 0.9rem; font-style: italic }
+  .chart-box { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px 10px; margin: 14px 0 }
+  .chart-box h3 { font-size: .92rem; margin-bottom: 10px; color: var(--muted); font-weight: 600 }
+  .chart-wrap { position: relative; height: 220px }
+  .chart-wrap.tall { height: 260px }
+  .smalls { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px }
+  .creative { display: grid; grid-template-columns: 230px minmax(0,1fr); gap: 18px;
+              background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+              padding: 16px 18px; margin: 12px 0 }
+  .creative video { width: 100%; border-radius: 8px; background: #000; display: block }
+  .creative .copy { font-size: 0.88rem; color: var(--muted); margin-top: 6px }
+  .scores { margin-top: 8px; font-size: 0.9rem }
+  details { margin: 14px 0; border: 1px solid var(--line); border-radius: 12px; background: var(--card) }
+  summary { cursor: pointer; padding: 12px 18px; font-weight: 600; font-size: .92rem }
+  details .inner { padding: 0 18px 14px }
+  @media (max-width: 640px) { .creative { grid-template-columns: 1fr } }
 </style>
 </head>
 <body>
 <h1>Autonomous Ads Lab</h1>
-<p class="sub">An AI autonomously runs X ads for <a href="https://artifactshare.com">Artifact Share</a> and improves itself from real-world results. Failures are published, not hidden. Code &amp; full logs: <a href="https://github.com/artifactshare/autonomous-ads-lab">autonomous-ads-lab</a>.</p>
-<p class="updated">Updated 2026-08-29 09:27 UTC · report auto-generated from the Experience DB</p>
+<p class="sub">AIが <a href="https://artifactshare.com">Artifact Share</a> のX広告を自律運用し、実世界の結果から自分を改善していく公開実験のライブレポートです。同じURLのまま自動更新されます。失敗も隠さず公開します。コードと全ログ: <a href="https://github.com/artifactshare/autonomous-ads-lab">autonomous-ads-lab</a> / <a href="https://artifactshare.com/a/m9gn48oo9z">企画書</a></p>
+<p class="updated">最終更新 2026-08-29 11:28 UTC · Experience DBから自動生成</p>
 
-<h2>Budget</h2>
-<table>
-<tr><th>Category</th><th>Spent (month)</th><th>Limit</th><th></th></tr>
-<tr><td>Creative</td><td class="num">$2.80</td><td class="num">$10</td><td><div class="bar"><div class="bar-fill" style="width:28.0%"></div></div></td></tr>
-<tr><td>X Ads</td><td class="num">$0.00</td><td class="num">$30</td><td><div class="bar"><div class="bar-fill" style="width:0.0%"></div></div></td></tr>
+<div class="tiles">
+  <div class="tile"><div class="v">1日目</div><div class="k">実験開始から (2026-08-29〜)</div></div>
+  <div class="tile"><div class="v">$3.10</div><div class="k">今月の変動費支出</div></div>
+  <div class="tile"><div class="v">3</div><div class="k">生成クリエイティブ</div></div>
+  <div class="tile live"><div class="v">1</div><div class="k">配信中</div></div>
+  <div class="tile"><div class="v">3</div><div class="k">記録された学び</div></div>
+</div>
+
+<h2>パフォーマンス推移</h2>
+<p class="note">配信metricsの取得はこれから。データが入り次第、ここに支出・インプレッション・クリックの日次推移グラフが描画されます。</p>
+
+<h2>予算</h2>
+<div class="table-scroll"><table>
+<tr><th>項目</th><th>今月の支出</th><th>上限</th><th></th></tr>
+<tr><td>クリエイティブ生成</td><td class="num">$2.80</td><td class="num">$10</td><td><div class="bar"><div class="bar-fill" style="width:28.0%"></div></div></td></tr>
+<tr><td>X広告配信</td><td class="num">$0.00</td><td class="num">$30</td><td><div class="bar"><div class="bar-fill" style="width:0.0%"></div></div></td></tr>
 <tr><td>AI / API</td><td class="num">$0.30</td><td class="num">$10</td><td><div class="bar"><div class="bar-fill" style="width:3.0%"></div></div></td></tr>
-<tr><td>Ads today</td><td class="num">$0.00</td><td class="num">$1.5/day</td><td><div class="bar"><div class="bar-fill" style="width:0.0%"></div></div></td></tr>
-</table>
+<tr><td>本日の広告支出</td><td class="num">$0.00</td><td class="num">$1.5/日</td><td><div class="bar"><div class="bar-fill" style="width:0.0%"></div></div></td></tr>
+</table></div>
+<p class="note">クリエイティブ生成 $2.80 のうち、下の一覧に載っている動画の分は $1.20。残り $1.60 はパイプライン検証や重複生成事故など、作品にならなかった支出です(失敗分も隠さず計上しています。経緯はリポジトリのjournal参照)。</p>
+<p class="note">別途固定費: X Premium ¥459/月(3ヶ月目から¥918/月)。広告配信の必須条件。</p>
 
-<h2>Experiments</h2>
+<h2>実験</h2>
 <div class="card"><h3>#1 — First real X ad: find a creative that makes AI-native devs click</h3>
-<p class="meta">status: running</p>
-<p>Pain-first framing (&quot;AI made the file, sharing is still manual&quot;) beats product-feature framing for AI coding agent users</p></div>
+<p class="meta">状態: 進行中</p>
+<p>仮説: Pain-first framing (&quot;AI made the file, sharing is still manual&quot;) beats product-feature framing for AI coding agent users</p></div>
 
-<h2>Creatives</h2>
-<table>
-<tr><th>#</th><th>Role</th><th>Concept</th><th>AI score</th><th>Cost</th><th>Verdict</th></tr>
-<tr><td class="num">1</td><td>challenger</td><td>Pain montage: the manual sharing loop</td><td class="num">4</td><td class="num">$0.40</td><td><span class="tag ok">qualified</span></td></tr>
-<tr><td class="num">2</td><td>challenger</td><td>Transformation: one link, live updates</td><td class="num">3.5</td><td class="num">$0.40</td><td><span class="tag ok">qualified</span></td></tr>
-<tr><td class="num">3</td><td>challenger</td><td>Absurdist: final_v7 file multiplication</td><td class="num">4.5</td><td class="num">$0.40</td><td><span class="tag ok">qualified</span></td></tr>
-</table>
-<p class="note">AI scores are predictions. They will be compared against actual CTR once enough data accrues.</p>
+<h2>クリエイティブ</h2>
+<div class="chart-box"><h3>AI事前評価スコア (overall / 10) — 実CTRとの答え合わせ用の予測</h3><div class="chart-wrap tall"><canvas id="c-scores"></canvas></div></div>
+<div class="creative">
+<div><video controls muted playsinline preload="none" src="https://raw.githubusercontent.com/artifactshare/autonomous-ads-lab/main/data/creatives/3/final.mp4"></video></div>
+<div>
+  <h3>#3 Absurdist: final_v7 file multiplication <span class="tag ok">合格</span> <span class="tag ok">配信中</span></h3>
+  <p class="meta">challenger · 生成 2026-08-29 · コスト $0.40</p>
+  <p class="copy">フック「final_v2. final_v3. final_final. final_v7.」 / CTA「One URL that updates - artifactshare.net」</p>
+  <p class="scores">AI評価: <b class="num">4.5</b> / 10<br><span class="meta">The hook text (final_v2/v3/final/v7) is a strong, relatable pain point for developers, and the folder-multiplication frame sells absurdist chaos well. But the ad pivots to a generic stressed-office-wo…</span></p>
+</div>
+</div>
+<div class="creative">
+<div><video controls muted playsinline preload="none" src="https://raw.githubusercontent.com/artifactshare/autonomous-ads-lab/main/data/creatives/2/final.mp4"></video></div>
+<div>
+  <h3>#2 Transformation: one link, live updates <span class="tag ok">合格</span></h3>
+  <p class="meta">challenger · 生成 2026-08-29 · コスト $0.40</p>
+  <p class="copy">フック「One URL. Comments in. AI fixes. Same URL.」 / CTA「Try Artifact Share」</p>
+  <p class="scores">AI評価: <b class="num">3.5</b> / 10<br><span class="meta">The paperclip icon reads as &#39;attachment,&#39; not &#39;URL/link,&#39; which muddles the core concept for a message that hinges on &#39;one URL.&#39; Actors and office setting are generic corporate stock footage with zero…</span></p>
+</div>
+</div>
+<div class="creative">
+<div><video controls muted playsinline preload="none" src="https://raw.githubusercontent.com/artifactshare/autonomous-ads-lab/main/data/creatives/1/final.mp4"></video></div>
+<div>
+  <h3>#1 Pain montage: the manual sharing loop <span class="tag ok">合格</span></h3>
+  <p class="meta">challenger · 生成 2026-08-29 · コスト $0.40</p>
+  <p class="copy">フック「AI made the file. Why are you still uploading it?」 / CTA「Share one URL instead」</p>
+  <p class="scores">AI評価: <b class="num">4</b> / 10<br><span class="meta">The pain-point headline is a strong scroll-stopping hook and the tired-office-worker visual sells the &#39;still uploading&#39; fatigue, but the ad never shows what Artifact Share actually does—no artifact pa…</span></p>
+</div>
+</div>
 
-<h2>Deployments</h2>
-<div class="card"><h3>Creative 3 on x <span class="tag ok">active</span></h3>
-<p class="meta">campaign 42298216 · started 2026-08-29 · budget $1.50/day</p></div>
+<p class="note">AI評価は「予測」です。実際のCTRが溜まり次第、答え合わせを行います。</p>
 
-<h2>Learnings</h2>
+<h2>配信履歴</h2>
+<div class="table-scroll"><table>
+<tr><th>クリエイティブ</th><th>配信期間</th><th>状態</th><th>予算</th><th>キャンペーン</th></tr>
+<tr><td>#3 Absurdist: final_v7 file multiplication</td><td class="num">2026-08-29 〜 配信中</td><td><span class="tag ok">配信中</span></td><td class="num">$1.50/日</td><td class="num">42298216</td></tr>
+</table></div>
+
+<h2>学び</h2>
 <div class="card"><h3>Creatives without visible product UI cap around 4/10 on product_clarity</h3>
-<p class="meta">confidence: medium</p>
+<p class="meta">確度: 中</p>
 <p>Abstract-UI-only prompts protect against garbled text but hide the product</p></div>
 <div class="card"><h3>Retrying a paid generation on fetch failure re-charges</h3>
-<p class="meta">confidence: high</p>
+<p class="meta">確度: 高</p>
 <p>Persist provider request_id immediately after submit; retry = collect, not re-submit</p></div>
 <div class="card"><h3>H3 Max garbles all rendered UI/on-screen text</h3>
-<p class="meta">confidence: high</p>
+<p class="meta">確度: 高</p>
 <p>Burn all must-read copy (brand, URL, CTA) in post with ffmpeg drawtext</p></div>
 
-<h2>Current status</h2>
+
+
+<h2>現在の状態</h2>
 <div class="card">
-<p>X Ads API access: application submitted, awaiting approval (weeks-to-months is normal). First deployment was made manually via X Ads Manager and is live.</p>
+<p>X Ads APIのアクセス申請は提出済みで承認待ちです(数週間〜数ヶ月かかるのが通例)。それまでの入稿・運用はAds Managerでの半自動運用で行っています。</p>
 </div>
+
+<script>
+(() => {
+  if (typeof Chart === 'undefined') return; // CDN blocked -> tables still tell the story
+  const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+  const accent = css('--accent'), soft = css('--accent-soft'), line = css('--line'), muted = css('--muted');
+  Chart.defaults.color = muted;
+  Chart.defaults.borderColor = line;
+  Chart.defaults.font.family = getComputedStyle(document.body).fontFamily;
+
+  const perf = [];
+  const mkLine = (id, key) => {
+    const el = document.getElementById(id);
+    if (!el || !perf.length) return;
+    new Chart(el, {
+      type: 'line',
+      data: { labels: perf.map(p => p.d.slice(5)), datasets: [{
+        data: perf.map(p => p[key]), borderColor: accent, backgroundColor: soft,
+        borderWidth: 2, pointRadius: perf.length > 45 ? 0 : 3, pointHoverRadius: 5,
+        fill: true, tension: 0.25,
+      }] },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: { intersect: false, mode: 'index' } },
+        interaction: { intersect: false, mode: 'index' },
+        scales: { y: { beginAtZero: true, grid: { color: line } }, x: { grid: { display: false }, ticks: { maxTicksLimit: 10 } } },
+      },
+    });
+  };
+  mkLine('c-spend', 'spend');
+  mkLine('c-imp', 'impressions');
+  mkLine('c-clicks', 'clicks');
+
+  const scores = [{"label":"#1","concept":"Pain montage: the manual","score":4},{"label":"#2","concept":"Transformation: one link","score":3.5},{"label":"#3","concept":"Absurdist: final_v7 file","score":4.5}];
+  const sc = document.getElementById('c-scores');
+  if (sc && scores.length) {
+    new Chart(sc, {
+      type: 'bar',
+      data: { labels: scores.map(s => s.label + ' ' + s.concept), datasets: [{
+        data: scores.map(s => s.score), backgroundColor: soft, borderColor: accent,
+        borderWidth: 1.5, borderRadius: 4, borderSkipped: false, maxBarThickness: 26,
+      }] },
+      options: {
+        indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: { x: { min: 0, max: 10, grid: { color: line } }, y: { grid: { display: false } } },
+      },
+    });
+  }
+})();
+</script>
 </body>
 </html>
