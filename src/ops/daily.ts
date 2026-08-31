@@ -40,6 +40,29 @@ const syncAdsActuals = () => {
 }
 syncAdsActuals()
 
+// Watchdog: the bridge (mini-PC self-hosted runner) should have delivered
+// yesterday's metrics before this job runs. If it didn't, the whole OODA loop
+// is flying blind — alert Slack so the failure is visible even when the
+// bridge's own failure notification could not fire (e.g. runner offline).
+const yesterday = new Date(Date.now() - 86400_000).toISOString().slice(0, 10)
+const fresh = db
+  .prepare("select count(*) as n from performance where substr(observed_at,1,10) = ?")
+  .get(yesterday) as { n: number }
+const watchdogNotes: string[] = []
+if (fresh.n === 0) {
+  log.warn('metrics_stale', { missingDate: yesterday })
+  watchdogNotes.push(`watchdog: no metrics for ${yesterday} — bridge likely down (Slack alerted)`)
+  if (process.env.SLACK_WEBHOOK_URL) {
+    await fetch(process.env.SLACK_WEBHOOK_URL, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        text: `⚠️ metrics watchdog: no performance data for ${yesterday}. Bridge runner offline or scrape broken — check https://github.com/artifactshare/ads-lab-bridge/actions`,
+      }),
+    }).catch(() => {})
+  }
+}
+
 const budget = new BudgetController(db).status()
 log.info('budget_status', budget)
 
@@ -50,6 +73,7 @@ const deployments = db
 const done = [
   `budget check: creative $${budget.month.creative.spent.toFixed(2)}/$${budget.month.creative.limit}, ads $${budget.month.ads.spent.toFixed(2)}/$${budget.month.ads.limit} (today $${budget.today.ads.spent.toFixed(2)}/$${budget.today.ads.limit})`,
   `${deployments.n} active deployment(s); metrics via bridge scrape (Ads API approval pending)`,
+  ...watchdogNotes,
 ]
 
 // Decide: continue or start a new creative generation from real performance.
