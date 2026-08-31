@@ -112,6 +112,7 @@ li{margin:6px 0}
     <div class="chip"><span>市場</span>英語圏 / X広告</div>
     <div class="chip"><span>予算</span>月$50 + 固定費</div>
     <div class="chip"><span>開始</span>2026-08-29</div>
+    <div class="chip"><span>3日実績</span><span class="num">5,740 imp / CTR 0.55%</span></div>
   </div>
   <div class="links">
     <a class="linkcard" href="https://artifactshare.com/a/a68uv6pu0e">
@@ -151,7 +152,7 @@ li{margin:6px 0}
     <div class="step">Observe<small>日次で観測</small></div><div class="arrow">→</div>
     <div class="step">Learn<small>Experience DBへ</small></div><div class="arrow">↺</div>
   </div>
-  <p>初日の実績: 動画生成(fal / MiniMax H3 Max)→AI評価で1本目を失格判定(文字崩れ検出)→「読ませる文字は後処理で焼き込む」方式に転換→3案を生成・評価→winner「final_v7増殖」をXへ入稿・配信開始。AI評価はCTRとの突き合わせ用の予測として全件保存しています。</p>
+  <p>初日の実績: 動画生成(fal / MiniMax H3 Max)→AI評価で1本目を失格判定(文字崩れ検出)→「読ませる文字は後処理で焼き込む」方式に転換→3案を生成・評価→winner「final_v7増殖」をXへ入稿・配信開始。AI評価はCTRとの突き合わせ用の予測として全件保存しています。3日目からは実測CTRがこのループに還流し、一定のデータが溜まると仮説→次世代生成→差し替えまでが無人で回ります。</p>
   <div class="callout">
     <b>調査もAIが自分で行う</b><br>
     Grok(x_search/web_search)が自社への言及・開発者のpain point・効いている広告表現を定期観測し、Technique Libraryに正規化します。人気があるだけでは採用せず、discovered → 実験 → evidence を通過したものだけがvalidatedになります。
@@ -163,31 +164,31 @@ li{margin:6px 0}
   <h2>予算はコードで縛る。それが唯一のHuman Gate</h2>
   <p>すべての支出は実行前にBudget Controllerの承認を通り、見積もりは実費に突合されます。上限値はCIの必須チェック(budget-guard)にも焼き込まれており、自動化の仕組み自身にも書き換えられません。増額できるのは人間だけです。</p>
   <div class="table-scroll"><table>
-    <tr><th>項目</th><th>月上限</th><th>初日実績</th><th>備考</th></tr>
-    <tr><td>クリエイティブ生成</td><td class="num">$10</td><td class="num">$2.80</td><td>動画5本(重複課金$1.20含む——修正済み・公開済み)</td></tr>
-    <tr><td>X広告配信</td><td class="num">$30 <span style="color:var(--muted)">(日次$1.5)</span></td><td class="num">配信開始</td><td>日次capを二段目の安全弁に</td></tr>
-    <tr><td>AI/API</td><td class="num">$10</td><td class="num">$0.10</td><td>Grok観測3クエリ</td></tr>
+    <tr><th>項目</th><th>月上限</th><th>実績(8/31時点)</th><th>備考</th></tr>
+    <tr><td>クリエイティブ生成</td><td class="num">$10</td><td class="num">$2.80</td><td>動画7本(重複課金$1.20含む——修正済み・公開済み)</td></tr>
+    <tr><td>X広告配信</td><td class="num">$30 <span style="color:var(--muted)">(日次$1.5)</span></td><td class="num">$2.92</td><td>Ads Managerから取得した実費を台帳に自動計上</td></tr>
+    <tr><td>AI/API</td><td class="num">$10</td><td class="num">$0.15</td><td>Grok日次観測、実費突合済み</td></tr>
     <tr><td>固定費</td><td class="num">¥459/月</td><td class="num">¥459</td><td>X Premium(広告配信の必須条件と判明。2ヶ月後¥918)</td></tr>
   </table></div>
 </section>
 
 <section id="status">
   <div class="eyebrow">STATUS</div>
-  <h2>現在の状況(2026-08-29)</h2>
+  <h2>現在の状況(2026-08-31)</h2>
   <div class="cards">
-    <div class="card"><b>✅ 配信中</b><p>初回キャンペーンがX上でActive。US/UK/CA/AU、英語、AIコーディング関連キーワード。</p></div>
-    <div class="card"><b>✅ 全ループ自動化</b><p>日次(観測・予算・レポート)と週次(Research・学習)がGitHub Actionsで無人稼働。</p></div>
-    <div class="card"><b>⏳ Ads API承認待ち</b><p>申請済み。承認まで入稿・metrics取得は半自動(承認後に完全自動化)。</p></div>
-    <div class="card"><b>📈 次の計測点</b><p>初のインプレッション・CTRデータ。AI予測(overall 4.5/10)との答え合わせが始まる。</p></div>
+    <div class="card"><b>✅ 配信中・実績が出た</b><p>3日間で5,740インプレッション・29クリック(CTR 0.55%)。AI事前予測(4.5/10)との答え合わせが始まった。</p></div>
+    <div class="card"><b>✅ 観測も完全自律化</b><p>Ads API承認待ちの間も、常時起動マシンのブリッジが毎朝Ads Managerから日次実績を取得しDBへ反映。人間の手はゼロ。</p></div>
+    <div class="card"><b>✅ 世代交代ループ実装</b><p>実データ7日(またはCTR崩壊時は3日)で、AIが仮説を立てて次世代クリエイティブ3案を自動生成・評価・差し替えへ。初回発火は9/5頃。</p></div>
+    <div class="card"><b>⏳ Ads API承認待ち</b><p>申請済み。承認後はブラウザ経由のブリッジをAPIに置き換えて配信操作も堅牢化。</p></div>
   </div>
 </section>
 
 <section id="self">
   <div class="eyebrow">SELF-IMPROVEMENT</div>
   <h2>ハーネス自身も、AIが直す</h2>
-  <p>週次の「harness agent」がジャーナル・ログ・CI結果を読み、問題をissue化し、修正をPRとして提出し、テストが通れば自動マージします。人間に頼るのは、権限や外部サービス設定など構造的にAIができない作業だけ——その場合も、実行するだけで済む手順を添えてSlackに通知が届きます。</p>
+  <p>「harness agent」がジャーナル・ログ・CI結果を読み、問題をissue化し、修正をPRとして提出し、テストが通れば自動マージします。週次に加えて、<b>どのジョブかが失敗するとその場で起動</b>します。人間に頼るのは、権限やパスワード入力など構造的にAIができない作業だけ——その場合も、実行するだけで済む手順を添えてSlackに通知が届きます。</p>
   <div class="callout">
-    <b>初回実行の実績</b>: 予算台帳が見積もりを実費の約3倍で計上し続けるバグをagent自身が発見。テスト付きの修正PRを作成し、CIを通過して自動マージされました。issueは7件起票され、残りも翌週のagentが処理します。
+    <b>実績</b>: 初回実行では予算台帳が実費の約3倍で計上し続けるバグをagent自身が発見し、テスト付き修正PRを自動マージ。3日目には「自動マージが全停止している」状態を自分で検知して原因を特定し、修正PR3本と学び(「<code>|| true</code>で握った失敗は観測されない」)をジャーナルに残しました。
   </div>
   <p>使うAIも適材適所に階層化しています: 前提を疑う仮説作りには最上位モデルを週数回だけ、数値分析には論理に強いモデル、頻度の高い評価・文章には軽量モデル。この配分自体も将来の改善対象です。</p>
 </section>
