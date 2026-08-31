@@ -88,6 +88,15 @@ if (process.env.FAL_KEY && process.env.CLAUDE_CODE_OAUTH_TOKEN) {
 } else {
   log.warn('decide_skipped', { reason: 'FAL_KEY or CLAUDE_CODE_OAUTH_TOKEN not set' })
 }
+// Watchdog: auto-merge is how every automated run reaches main. If it stalls,
+// the run's DB update and journal entry never land and nothing says so.
+if (process.env.GH_TOKEN) {
+  const { checkStalledPrs } = await import('./stalled-prs.ts')
+  done.push(...(await checkStalledPrs(log)))
+} else {
+  log.warn('stalled_pr_check_skipped', { reason: 'GH_TOKEN not set' })
+}
+
 if (process.env.XAI_API_KEY) {
   const { dailyObservation, discoverPostUrls } = await import('../research/research.ts')
   done.push(...(await dailyObservation(db, log)))
