@@ -19,7 +19,7 @@ const db = openDb()
 // pinned to the performance date so month/day cap windows attribute correctly.
 const syncAdsActuals = () => {
   const rows = db
-    .prepare('select creative_id, date, spend_usd from performance')
+    .prepare("select creative_id, substr(observed_at, 1, 10) as date, spend_usd from performance")
     .all() as { creative_id: number; date: string; spend_usd: number }[]
   const upsert = db.prepare(
     `insert into budget_ledger (created_at, category, amount_usd, description, run_id, creative_id, idempotency_key)
