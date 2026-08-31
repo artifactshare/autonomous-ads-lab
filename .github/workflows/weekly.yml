@@ -11,6 +11,7 @@ concurrency:
 permissions:
   contents: write
   pull-requests: write
+  actions: write # dispatch harness on failure
 
 jobs:
   weekly:
@@ -44,3 +45,8 @@ jobs:
           git push origin "$BRANCH"
           gh pr create --fill --head "$BRANCH"
           gh pr merge --auto --squash "$BRANCH"
+      - name: Dispatch harness agent on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run harness.yml -R "${GITHUB_REPOSITORY}"

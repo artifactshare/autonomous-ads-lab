@@ -51,7 +51,7 @@ export async function decideAndAct(db: Database.Database, log: Logger): Promise<
     )
     .get(dep.creative_id) as { n: number }
   if (pending.n > 0) {
-    return [`decide: ${pending.n} evaluated challenger(s) await human deployment; no new round`]
+    return [`decide: ${pending.n} evaluated challenger(s) await bridge auto-deploy; no new round`]
   }
 
   const perf = db
