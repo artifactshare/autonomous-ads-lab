@@ -47,11 +47,23 @@ const deployments = db
   .prepare("select count(*) as n from deployments where status = 'active'")
   .get() as { n: number }
 
-// TODO Phase 3/5: metrics retrieval + decide (continue / pause / mutate).
 const done = [
   `budget check: creative $${budget.month.creative.spent.toFixed(2)}/$${budget.month.creative.limit}, ads $${budget.month.ads.spent.toFixed(2)}/$${budget.month.ads.limit} (today $${budget.today.ads.spent.toFixed(2)}/$${budget.today.ads.limit})`,
-  `${deployments.n} active deployment(s); metrics retrieval not yet automated (Ads API approval pending)`,
+  `${deployments.n} active deployment(s); metrics via bridge scrape (Ads API approval pending)`,
 ]
+
+// Decide: continue or start a new creative generation from real performance.
+if (process.env.FAL_KEY && process.env.CLAUDE_CODE_OAUTH_TOKEN) {
+  try {
+    const { decideAndAct } = await import('./decide.ts')
+    done.push(...(await decideAndAct(db, log)))
+  } catch (err) {
+    log.error('decide_failed', { error: String(err).slice(0, 500) })
+    done.push(`decide step failed: ${String(err).slice(0, 200)}`)
+  }
+} else {
+  log.warn('decide_skipped', { reason: 'FAL_KEY or CLAUDE_CODE_OAUTH_TOKEN not set' })
+}
 if (process.env.XAI_API_KEY) {
   const { dailyObservation, discoverPostUrls } = await import('../research/research.ts')
   done.push(...(await dailyObservation(db, log)))
