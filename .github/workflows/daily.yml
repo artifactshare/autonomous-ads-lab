@@ -11,6 +11,7 @@ concurrency:
 permissions:
   contents: write
   pull-requests: write
+  issues: write # decide step opens needs-human deployment issues
 
 jobs:
   daily:
@@ -30,6 +31,9 @@ jobs:
         env:
           ARTIFACTSHARE_TOKEN: ${{ secrets.ARTIFACTSHARE_TOKEN }}
           XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
+          FAL_KEY: ${{ secrets.FAL_KEY }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Commit Experience DB changes
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
