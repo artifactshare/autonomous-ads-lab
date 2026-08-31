@@ -7,10 +7,10 @@
 // - Generation = hypothesis LLM (fable, opus fallback via modelFor) proposes
 //   challengers grounded in the knowledge library + our own results; each is
 //   produced and evaluated through the normal budget-guarded pipeline.
-// - Deployment itself is still manual (Ads API approval pending), so the round
-//   ends by opening a needs-human issue with exact swap instructions. While an
-//   evaluated-but-undeployed challenger exists, no new round starts.
-import { execFileSync } from 'node:child_process'
+// - Deployment is handled by the ads-lab-bridge repo's morning run: it finds
+//   the undeployed winner in this DB and swaps the ad in Ads Manager via the
+//   logged-in browser (Ads API approval pending). While an evaluated-but-
+//   undeployed challenger exists, no new round starts.
 import { query } from '@anthropic-ai/claude-agent-sdk'
 import type Database from 'better-sqlite3'
 import type { Logger } from '../logging/logger.ts'
@@ -111,8 +111,9 @@ export async function decideAndAct(db: Database.Database, log: Logger): Promise<
     return notes
   }
 
-  notes.push(`winner: creative ${winner.creativeId} (${winner.overall}/10) — needs-human deployment requested`)
-  openDeploymentIssue(log, winner.creativeId, winner.overall, dep.creative_id)
+  notes.push(
+    `winner: creative ${winner.creativeId} (${winner.overall}/10) — awaiting bridge auto-deploy (next 06:30 JST run)`,
+  )
   return notes
 }
 
@@ -177,26 +178,3 @@ Output ONLY JSON: {"hypothesis": string, "creatives": [{"concept","hook","messag
   return { hypothesis: raw.hypothesis, creatives }
 }
 
-function openDeploymentIssue(log: Logger, creativeId: number, overall: number, replacesId: number): void {
-  const body = `自動生成ラウンドの勝者をX広告に差し替えてください(Ads API承認待ちのため人間作業)。
-
-1. 動画を取得: \`data/creatives/${creativeId}/final.mp4\` (mainブランチ)
-2. https://ads.x.com/ の既存キャンペーン ads-lab-exp001-final_v7 で、広告クリエイティブを差し替え(または新規Adとして追加し旧Adを停止)
-3. 完了後、このリポジトリで:
-   \`pnpm tsx src/ops/record-deployment.ts --creative ${creativeId} --replaces ${replacesId}\`
-   を実行してコミット(post URLは daily の discoverPostUrls が自動発見します)
-
-事前評価 ${overall}/10。詳細は Living Report とExperience DBを参照。`
-  try {
-    execFileSync('gh', [
-      'issue', 'create',
-      '--title', `deploy: 新クリエイティブ ${creativeId} への差し替え (pre-score ${overall}/10)`,
-      '--body', body,
-      '--label', 'needs-human',
-    ], { encoding: 'utf8' })
-    log.info('needs_human_issue_opened', { creativeId })
-  } catch (err) {
-    // gh unavailable (local run) — the journal entry still records the request.
-    log.warn('needs_human_issue_failed', { error: String(err).slice(0, 200) })
-  }
-}
