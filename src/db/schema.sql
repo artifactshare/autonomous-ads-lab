@@ -148,6 +148,25 @@ create table if not exists budget_ledger (
   idempotency_key text unique  -- prevents double-charging the same action
 );
 
+-- Structured run log. The JSONL files under logs/ are gitignored and the
+-- Actions runner is destroyed after every job, so automated runs used to leave
+-- no auditable trace beyond the journal prose. Mirroring log lines here puts
+-- them on the existing `data/` commit path, so decisions survive the run and
+-- the harness agent can query them with SQL.
+create table if not exists run_logs (
+  id integer primary key,
+  ts text not null,
+  run_id text not null,
+  level text not null,         -- debug | info | warn | error
+  event text not null,
+  experiment_id integer,       -- deliberately not a FK: logs must never fail an insert
+  creative_id integer,
+  fields text                  -- JSON object of the remaining structured fields
+);
+
+create index if not exists idx_run_logs_ts on run_logs(ts);
+create index if not exists idx_run_logs_run on run_logs(run_id);
+
 create index if not exists idx_creatives_experiment on creatives(experiment_id);
 create index if not exists idx_evaluations_creative on evaluations(creative_id);
 create index if not exists idx_performance_creative on performance(creative_id);

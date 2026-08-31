@@ -3,14 +3,16 @@
 import { execFileSync } from 'node:child_process'
 import { writeFileSync } from 'node:fs'
 import { openDb } from '../db/index.ts'
-import { Logger } from '../logging/logger.ts'
+import { Logger, pruneRunLogs } from '../logging/logger.ts'
 import { appendJournal } from '../reporting/journal.ts'
 import { renderLivingReportHtml } from '../reporting/html.ts'
 import { weeklyResearch } from '../research/research.ts'
 import { ResearchRepo } from '../research/repo.ts'
 
-const log = Logger.newRun('logs/weekly.jsonl')
 const db = openDb()
+// See daily.ts: the DB sink is the only log trace that outlives the runner.
+const log = Logger.newRun('logs/weekly.jsonl', db)
+pruneRunLogs(db)
 
 const done: string[] = []
 if (process.env.XAI_API_KEY) {
