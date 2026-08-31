@@ -232,7 +232,7 @@ ${cardCreatives
     const live = activeIds.has(c.id) ? ' <span class="tag ok">配信中</span>' : ''
     const url = videoUrl(c.id)
     const video = url
-      ? `<video controls muted playsinline preload="none" src="${url}"></video>`
+      ? `<video controls playsinline preload="none" src="${url}"></video>`
       : `<div class="note">動画は未公開</div>`
     return `<div class="creative">
 <div>${video}</div>
