@@ -4,7 +4,7 @@
 
 ## やること（この順で）
 
-1. **状況把握**: `journal/` の直近エントリ、`logs/*.jsonl`、`gh run list --limit 10`（CI/daily/weeklyの失敗）、`gh issue list` を読む
+1. **状況把握**: `journal/` の直近エントリ、直近の構造化ログ（`sqlite3 data/experience.db "select ts, level, event, fields from run_logs order by ts desc limit 50"`。`logs/*.jsonl` はgitignoreされ自動実行では残らないので当てにしない）、`gh run list --limit 10`（CI/daily/weeklyの失敗）、`gh issue list` を読む
 2. **トリアージ**: 見つけた問題・改善機会を `gh issue create` で起票する（既存issueと重複させない。ラベル: `bug` / `enhancement` / `harness`）。起票だけで終わるものは理由を書く
 3. **改修**: 小さく安全に直せるもの（テスト追加で守れる範囲）は、`fix/` または `improve/` ブランチを切って修正し、`pnpm typecheck && pnpm test` を通してからPRを作る。PR本文に対応するissue番号と「なぜ安全か」を書く
 4. **auto-merge設定**: 作ったPRに `gh pr merge --auto --squash` を設定（CIグリーンで自動マージされる）

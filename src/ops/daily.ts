@@ -5,12 +5,15 @@ import { execFileSync } from 'node:child_process'
 import { writeFileSync } from 'node:fs'
 import { openDb } from '../db/index.ts'
 import { BudgetController } from '../budget/controller.ts'
-import { Logger } from '../logging/logger.ts'
+import { Logger, pruneRunLogs } from '../logging/logger.ts'
 import { appendJournal } from '../reporting/journal.ts'
 import { renderLivingReportHtml } from '../reporting/html.ts'
 
-const log = Logger.newRun('logs/daily.jsonl')
 const db = openDb()
+// The DB sink is what makes this run auditable: logs/ is gitignored and the
+// runner is discarded, so only run_logs (committed with data/) survives.
+const log = Logger.newRun('logs/daily.jsonl', db)
+pruneRunLogs(db)
 
 // Ad spend happens on X's side (campaign was deployed manually), so it never
 // passes authorize(). Sync scraped actuals from `performance` into the ledger
