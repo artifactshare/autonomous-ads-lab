@@ -56,7 +56,9 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          for id in $(gh api "repos/${GITHUB_REPOSITORY}/actions/runs?status=action_required&per_page=20" -q '.workflow_runs[].id'); do
+          # Trusted actors only: never auto-approve a stranger's fork PR run.
+          for id in $(gh api "repos/${GITHUB_REPOSITORY}/actions/runs?status=action_required&per_page=20" \
+              -q '.workflow_runs[] | select(.actor.login as $a | ["github-actions[bot]", "ads-lab-bot", "coji"] | index($a)) | .id'); do
             gh api -X POST "repos/${GITHUB_REPOSITORY}/actions/runs/${id}/approve" && echo "approved run ${id}" || true
           done
       # Self-healing: any failure wakes the harness agent immediately instead
