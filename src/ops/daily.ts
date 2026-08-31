@@ -11,6 +11,35 @@ import { renderLivingReportHtml } from '../reporting/html.ts'
 
 const log = Logger.newRun('logs/daily.jsonl')
 const db = openDb()
+
+// Ad spend happens on X's side (campaign was deployed manually), so it never
+// passes authorize(). Sync scraped actuals from `performance` into the ledger
+// so budget caps and the report both count real media spend. Idempotent per
+// (creative, date); re-scrapes update the amount in place. created_at is
+// pinned to the performance date so month/day cap windows attribute correctly.
+const syncAdsActuals = () => {
+  const rows = db
+    .prepare('select creative_id, date, spend_usd from performance')
+    .all() as { creative_id: number; date: string; spend_usd: number }[]
+  const upsert = db.prepare(
+    `insert into budget_ledger (created_at, category, amount_usd, description, run_id, creative_id, idempotency_key)
+     values (?, 'ads', ?, ?, ?, ?, ?)
+     on conflict(idempotency_key) do update set amount_usd = excluded.amount_usd`,
+  )
+  for (const r of rows) {
+    upsert.run(
+      `${r.date}T12:00:00.000Z`,
+      r.spend_usd,
+      `X ads actual spend for ${r.date} (bridge scrape)`,
+      log.runId,
+      r.creative_id,
+      `ads-actual-${r.creative_id}-${r.date}`,
+    )
+  }
+  log.info('ads_actuals_synced', { rows: rows.length })
+}
+syncAdsActuals()
+
 const budget = new BudgetController(db).status()
 log.info('budget_status', budget)
 
