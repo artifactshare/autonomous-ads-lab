@@ -1,7 +1,7 @@
 name: Daily Ops
 on:
   schedule:
-    - cron: '0 22 * * *' # 07:00 JST daily (best effort; GH cron can lag)
+    - cron: '7 22 * * *' # 07:00 JST daily (best effort; GH cron can lag)
   workflow_dispatch:
 
 concurrency:
