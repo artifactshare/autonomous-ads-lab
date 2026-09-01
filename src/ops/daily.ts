@@ -66,6 +66,26 @@ if (fresh.n === 0) {
   }
 }
 
+// Watchdog: GitHub sometimes skips scheduled runs outright (observed 9/1).
+// Weekly research writes research_observations; if the newest weekly-kind row
+// is over 8 days old, the weekly job has silently stopped running.
+const lastWeekly = db
+  .prepare("select max(created_at) as t from research_observations where kind in ('pain_points','ad_trends')")
+  .get() as { t: string | null }
+if (lastWeekly.t && Date.now() - new Date(lastWeekly.t).getTime() > 8 * 86400_000) {
+  log.warn('weekly_stale', { lastRun: lastWeekly.t })
+  watchdogNotes.push(`watchdog: weekly research last ran ${lastWeekly.t.slice(0, 10)} (>8d ago) — cron likely skipped (Slack alerted)`)
+  if (process.env.SLACK_WEBHOOK_URL) {
+    await fetch(process.env.SLACK_WEBHOOK_URL, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        text: `⚠️ weekly research has not run since ${lastWeekly.t.slice(0, 10)} — GitHub cron likely skipped. Dispatch: gh workflow run weekly.yml -R artifactshare/autonomous-ads-lab`,
+      }),
+    }).catch(() => {})
+  }
+}
+
 const budget = new BudgetController(db).status()
 log.info('budget_status', budget)
 
@@ -108,6 +128,25 @@ if (process.env.XAI_API_KEY) {
   log.warn('research_skipped', { reason: 'XAI_API_KEY not set' })
 }
 appendJournal({ actor: 'daily-ops (automated)', done, spent: [], learnings: [], next: [] })
+
+// Daily heartbeat: one Slack line with yesterday's numbers and today's decide
+// outcome, so silence never has to be interpreted as either health or failure.
+if (process.env.SLACK_WEBHOOK_URL) {
+  const y = db
+    .prepare(
+      "select coalesce(sum(impressions),0) as imp, coalesce(sum(clicks),0) as clicks, coalesce(sum(spend_usd),0) as spend from performance where substr(observed_at,1,10) = ?",
+    )
+    .get(yesterday) as { imp: number; clicks: number; spend: number }
+  const ctr = y.imp > 0 ? ((y.clicks / y.imp) * 100).toFixed(2) + '%' : '—'
+  const decideNote = done.find((l) => l.startsWith('decide:')) ?? 'decide: (not run)'
+  await fetch(process.env.SLACK_WEBHOOK_URL, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      text: `📊 ${yesterday}: ${y.imp} imp / ${y.clicks} clicks / CTR ${ctr} / $${y.spend.toFixed(2)} · ${decideNote}`,
+    }),
+  }).catch(() => {})
+}
 
 writeFileSync('data/living-report.html', renderLivingReportHtml(db))
 if (process.env.ARTIFACTSHARE_TOKEN) {

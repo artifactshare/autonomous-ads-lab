@@ -156,7 +156,7 @@ Output ONLY JSON: {"hypothesis": string, "creatives": [{"concept","hook","messag
 - cta: <=40 chars, end card
 - prompt: H3 Max video prompt following the knowledge above; no readable text in the video`
 
-  const q = query({ prompt, options: { ...modelFor('hypothesis'), maxTurns: 3 } })
+  const q = query({ prompt, options: { ...modelFor('hypothesis', db), maxTurns: 3 } })
   let text = ''
   for await (const m of q) {
     if (m.type === 'result') {

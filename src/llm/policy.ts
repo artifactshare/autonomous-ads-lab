@@ -38,11 +38,34 @@ export interface ModelChoice {
   effort: 'low' | 'high'
 }
 
-export function modelFor(role: LlmRole): ModelChoice {
+/** ISO date of the Monday of the current week (UTC). */
+function weekStart(): string {
+  const now = new Date()
+  const dow = (now.getUTCDay() + 6) % 7 // Monday = 0
+  return new Date(now.getTime() - dow * 86400_000).toISOString().slice(0, 10)
+}
+
+/**
+ * Pick the model for a role. Pass `db` where possible: the fable weekly cap is
+ * then enforced against the persistent `fable_usage` table instead of the
+ * per-process counter (which resets every job run and would allow the daily
+ * job to burn the weekly limit up to 7x).
+ */
+export function modelFor(role: LlmRole, db?: import('better-sqlite3').Database): ModelChoice {
   let model = MODEL_FOR_ROLE[role]
   if (role === 'hypothesis') {
-    fableCallsThisRun += 1
-    if (fableCallsThisRun > FABLE_CALLS_PER_WEEK) model = MODEL_FOR_ROLE.analysis
+    if (db) {
+      const week = weekStart()
+      const tx = db.transaction((): number => {
+        db.prepare('insert into fable_usage (week_start, calls) values (?, 0) on conflict(week_start) do nothing').run(week)
+        db.prepare('update fable_usage set calls = calls + 1 where week_start = ?').run(week)
+        return (db.prepare('select calls from fable_usage where week_start = ?').get(week) as { calls: number }).calls
+      })
+      if (tx.immediate() > FABLE_CALLS_PER_WEEK) model = MODEL_FOR_ROLE.analysis
+    } else {
+      fableCallsThisRun += 1
+      if (fableCallsThisRun > FABLE_CALLS_PER_WEEK) model = MODEL_FOR_ROLE.analysis
+    }
   }
   const effort = model === 'claude-fable-5' ? 'low' : 'high'
   return { model, effort }
