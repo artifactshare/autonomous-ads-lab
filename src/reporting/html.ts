@@ -76,7 +76,26 @@ export function renderLivingReportHtml(db: Database.Database): string {
   const daysRunning = startDate
     ? Math.max(1, Math.floor((Date.now() - new Date(startDate).getTime()) / 86400_000) + 1)
     : 0
-  const totalVariable = budget.month.creative.spent + budget.month.ads.spent + budget.month.ai.spent
+  // Display-only aggregation: the experiment started 2026-08-29, so August has
+  // only 3 days. For September, show Aug+Sep combined so the report tells the
+  // whole story. Budget *enforcement* stays strictly monthly in the controller.
+  const nowMonth = new Date().toISOString().slice(0, 7)
+  const combineFrom = nowMonth === '2026-09' ? '2026-08-01' : `${nowMonth}-01`
+  const combinedLabel = nowMonth === '2026-09' ? '今月の変動費支出(8月分と合算)' : '今月の変動費支出'
+  const spentSince = (category: string): number =>
+    (
+      db
+        .prepare(
+          "select coalesce(sum(amount_usd), 0) as total from budget_ledger where category = ? and created_at >= ?",
+        )
+        .get(category, `${combineFrom}T00:00:00.000Z`) as { total: number }
+    ).total
+  const shown = {
+    creative: spentSince('creative'),
+    ads: spentSince('ads'),
+    ai: spentSince('ai'),
+  }
+  const totalVariable = shown.creative + shown.ads + shown.ai
 
   // The ledger includes spend that never became a listed creative (pipeline
   // tests, duplicate-submission incidents). Surface the delta so the budget
@@ -85,12 +104,12 @@ export function renderLivingReportHtml(db: Database.Database): string {
     (sum, c) => sum + (typeof c.generation_cost_usd === 'number' ? c.generation_cost_usd : 0),
     0,
   )
-  const unlistedCreativeCost = Math.max(0, budget.month.creative.spent - listedCreativeCost)
+  const unlistedCreativeCost = Math.max(0, shown.creative - listedCreativeCost)
 
   const budgetRows = [
-    ['クリエイティブ生成', budget.month.creative.spent, config.budget.monthlyCreativeUsd],
-    ['X広告配信', budget.month.ads.spent, config.budget.monthlyAdsUsd],
-    ['AI / API', budget.month.ai.spent, config.budget.monthlyAiUsd],
+    ['クリエイティブ生成', shown.creative, config.budget.monthlyCreativeUsd],
+    ['X広告配信', shown.ads, config.budget.monthlyAdsUsd],
+    ['AI / API', shown.ai, config.budget.monthlyAiUsd],
   ] as const
 
   const scoreData = cardCreatives
@@ -171,7 +190,7 @@ export function renderLivingReportHtml(db: Database.Database): string {
 
 <div class="tiles">
   <div class="tile"><div class="v">${daysRunning}日目</div><div class="k">実験開始から (${startDate ?? '—'}〜)</div></div>
-  <div class="tile"><div class="v">${money(totalVariable)}</div><div class="k">今月の変動費支出</div></div>
+  <div class="tile"><div class="v">${money(totalVariable)}</div><div class="k">${combinedLabel}</div></div>
   <div class="tile"><div class="v">${creatives.length}</div><div class="k">生成クリエイティブ</div></div>
   <div class="tile live"><div class="v">${activeIds.size}</div><div class="k">配信中</div></div>
   <div class="tile"><div class="v">${learnings.length}</div><div class="k">記録された学び</div></div>
@@ -201,7 +220,7 @@ ${budgetRows
 </table></div>
 ${
   unlistedCreativeCost > 0.005
-    ? `<p class="note">クリエイティブ生成 ${money(budget.month.creative.spent)} のうち、下の一覧に載っている動画の分は ${money(listedCreativeCost)}。残り ${money(unlistedCreativeCost)} はパイプライン検証や重複生成事故など、作品にならなかった支出です(失敗分も隠さず計上しています。経緯はリポジトリのjournal参照)。</p>`
+    ? `<p class="note">クリエイティブ生成 ${money(shown.creative)} のうち、下の一覧に載っている動画の分は ${money(listedCreativeCost)}。残り ${money(unlistedCreativeCost)} はパイプライン検証や重複生成事故など、作品にならなかった支出です(失敗分も隠さず計上しています。経緯はリポジトリのjournal参照)。</p>`
     : ''
 }
 <p class="note">別途固定費: X Premium ¥459/月(3ヶ月目から¥918/月)。広告配信の必須条件。</p>
