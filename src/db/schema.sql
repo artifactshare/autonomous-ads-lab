@@ -164,6 +164,14 @@ create table if not exists run_logs (
   fields text                  -- JSON object of the remaining structured fields
 );
 
+-- fable-5 weekly usage counter. The in-process counter in llm/policy.ts resets
+-- every job run, so daily jobs could burn the weekly limit 7x. This table makes
+-- the cap survive across runs (week_start = Monday, ISO date).
+create table if not exists fable_usage (
+  week_start text primary key,
+  calls integer not null default 0
+);
+
 create index if not exists idx_run_logs_ts on run_logs(ts);
 create index if not exists idx_run_logs_run on run_logs(run_id);
 
