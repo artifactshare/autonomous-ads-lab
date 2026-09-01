@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import type Database from 'better-sqlite3'
 import { config } from '../config.ts'
 import { BudgetController } from '../budget/controller.ts'
@@ -15,6 +15,50 @@ function videoUrl(creativeId: unknown): string | null {
   return existsSync(`data/creatives/${creativeId}/final.mp4`)
     ? `${RAW_BASE}/data/creatives/${creativeId}/final.mp4`
     : null
+}
+
+// Public work journal, embedded into the report as an interactive calendar.
+// Markdown is converted with a deliberately tiny renderer: escape everything
+// first, then re-introduce only the handful of constructs the journals use.
+function mdToHtml(md: string): string {
+  const inline = (s: string) =>
+    esc(s)
+      .replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>')
+      .replace(/`([^`]+)`/g, '<code>$1</code>')
+      .replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
+  const out: string[] = []
+  let inList = false
+  const closeList = () => {
+    if (inList) out.push('</ul>')
+    inList = false
+  }
+  for (const raw of md.split('\n')) {
+    const line = raw.trimEnd()
+    if (/^# /.test(line)) continue // date heading duplicates the calendar selection
+    if (/^## /.test(line)) { closeList(); out.push(`<h4>${inline(line.slice(3))}</h4>`); continue }
+    if (/^### /.test(line)) { closeList(); out.push(`<h5>${inline(line.slice(4))}</h5>`); continue }
+    if (/^- /.test(line)) {
+      if (!inList) { out.push('<ul>'); inList = true }
+      out.push(`<li>${inline(line.slice(2))}</li>`)
+      continue
+    }
+    if (/^> /.test(line)) { closeList(); out.push(`<blockquote>${inline(line.slice(2))}</blockquote>`); continue }
+    if (line === '') { closeList(); continue }
+    closeList()
+    out.push(`<p>${inline(line)}</p>`)
+  }
+  closeList()
+  return out.join('\n')
+}
+
+function loadJournals(): Record<string, string> {
+  const map: Record<string, string> = {}
+  if (!existsSync('journal')) return map
+  for (const f of readdirSync('journal')) {
+    const m = f.match(/^(\d{4}-\d{2}-\d{2})\.md$/)
+    if (m) map[m[1]!] = mdToHtml(readFileSync(`journal/${f}`, 'utf8'))
+  }
+  return map
 }
 
 function bar(spent: number, limit: number): string {
@@ -45,6 +89,7 @@ const LEARNING_LIMIT = 8
 /** Render the public living report as a self-contained HTML page (Japanese). */
 export function renderLivingReportHtml(db: Database.Database): string {
   const budget = new BudgetController(db).status()
+  const journals = loadJournals()
   const experiments = db.prepare('select * from experiments order by id desc').all() as Record<string, unknown>[]
   const creatives = db
     .prepare(
@@ -166,6 +211,27 @@ export function renderLivingReportHtml(db: Database.Database): string {
   .card h3 { font-size: 0.98rem; margin-bottom: 4px }
   .meta { color: var(--muted); font-size: 0.84rem }
   .note { color: var(--muted); font-size: 0.9rem; font-style: italic }
+  .jcal { display: flex; flex-wrap: wrap; gap: 20px; margin: 14px 0 }
+  .jmonth { }
+  .jmonth h5 { color: var(--muted); font-size: .8rem; margin-bottom: 6px; font-weight: 600 }
+  .jgrid { display: grid; grid-template-columns: repeat(7, 30px); gap: 4px }
+  .jdow { color: var(--muted); font-size: .62rem; text-align: center }
+  .jday { width: 30px; height: 30px; border-radius: 8px; border: 1px solid var(--line);
+          display: flex; align-items: center; justify-content: center;
+          font-family: var(--mono); font-size: .72rem; color: var(--muted); background: var(--card) }
+  .jday.has { border-color: var(--accent); color: var(--accent); font-weight: 700; cursor: pointer }
+  .jday.has:hover { background: var(--accent-soft) }
+  .jday.sel { background: var(--accent); color: #fff; border-color: var(--accent) }
+  .jday.empty { border: none; background: none }
+  .jview { background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+           padding: 18px 22px; font-size: .93rem }
+  .jview h4 { margin: 14px 0 4px; font-size: 1rem }
+  .jview h4:first-child { margin-top: 0 }
+  .jview h5 { margin: 10px 0 2px; font-size: .88rem; color: var(--muted) }
+  .jview ul { padding-left: 1.2em; margin: 4px 0 }
+  .jview li { margin: 2px 0 }
+  .jview blockquote { border-left: 3px solid var(--line); padding-left: 12px; color: var(--muted); margin: 6px 0 }
+  .jview code { font-family: var(--mono); font-size: .85em; background: var(--accent-soft); border-radius: 4px; padding: 1px 4px }
   .chart-box { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px 10px; margin: 14px 0 }
   .chart-box h3 { font-size: .92rem; margin-bottom: 10px; color: var(--muted); font-weight: 600 }
   .chart-wrap { position: relative; height: 220px }
@@ -322,9 +388,14 @@ ${
 }
 ${learnings.length === 0 ? '<p class="note">構造化された学びはまだありません(経緯はリポジトリのjournalへ)。</p>' : ''}
 
+<h2>作業ジャーナル</h2>
+<p class="note">人間とAIの両方が同じジャーナルに記録しています(自動ジョブの実行痕跡も含む)。日付をクリックするとその日の記録を表示します。原本は<a href="https://github.com/artifactshare/autonomous-ads-lab/tree/main/journal" target="_blank" rel="noopener">リポジトリ</a>に。</p>
+<div id="jcal" class="jcal"></div>
+<div id="jview" class="jview"></div>
+
 <h2>現在の状態</h2>
 <div class="card">
-<p>X Ads APIのアクセス申請は提出済みで承認待ちです(数週間〜数ヶ月かかるのが通例)。それまでの入稿・運用はAds Managerでの半自動運用で行っています。</p>
+<p>X Ads APIのアクセス申請は提出済みで承認待ちです(数週間〜数ヶ月かかるのが通例)。それまでの計測・入稿は常時起動マシン経由のブリッジで自動運用しています。承認後はAPIに置き換えます。</p>
 </div>
 
 <script>
@@ -375,6 +446,60 @@ ${learnings.length === 0 ? '<p class="note">構造化された学びはまだあ
       },
     });
   }
+})();
+</script>
+<script>
+(() => {
+  const journals = ${JSON.stringify(journals)};
+  const dates = Object.keys(journals).sort();
+  const cal = document.getElementById('jcal');
+  const view = document.getElementById('jview');
+  if (!cal || !view || !dates.length) { if (view) view.textContent = 'まだジャーナルはありません。'; return; }
+
+  const first = dates[0], last = dates[dates.length - 1];
+  const today = new Date().toISOString().slice(0, 10);
+  const months = [];
+  for (let m = first.slice(0, 7); m <= (today > last ? today : last).slice(0, 7); ) {
+    months.push(m);
+    const [y, mo] = m.split('-').map(Number);
+    m = mo === 12 ? (y + 1) + '-01' : y + '-' + String(mo + 1).padStart(2, '0');
+  }
+
+  let selected = null;
+  const select = (d) => {
+    selected = d;
+    view.innerHTML = '<h4 style="font-family:var(--mono)">' + d + '</h4>' + journals[d];
+    cal.querySelectorAll('.jday').forEach(el => el.classList.toggle('sel', el.dataset.d === d));
+  };
+
+  for (const m of months) {
+    const [y, mo] = m.split('-').map(Number);
+    const box = document.createElement('div');
+    box.className = 'jmonth';
+    box.innerHTML = '<h5>' + y + '年' + mo + '月</h5>';
+    const grid = document.createElement('div');
+    grid.className = 'jgrid';
+    for (const w of ['日','月','火','水','木','金','土']) {
+      const el = document.createElement('div'); el.className = 'jdow'; el.textContent = w; grid.appendChild(el);
+    }
+    const firstDow = new Date(y, mo - 1, 1).getDay();
+    const daysIn = new Date(y, mo, 0).getDate();
+    for (let i = 0; i < firstDow; i++) {
+      const el = document.createElement('div'); el.className = 'jday empty'; grid.appendChild(el);
+    }
+    for (let d = 1; d <= daysIn; d++) {
+      const iso = m + '-' + String(d).padStart(2, '0');
+      const el = document.createElement('div');
+      el.className = 'jday' + (journals[iso] ? ' has' : '');
+      el.dataset.d = iso;
+      el.textContent = d;
+      if (journals[iso]) el.addEventListener('click', () => select(iso));
+      grid.appendChild(el);
+    }
+    box.appendChild(grid);
+    cal.appendChild(box);
+  }
+  select(last);
 })();
 </script>
 </body>
