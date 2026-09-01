@@ -113,8 +113,18 @@ export function withEventCapture(db: Database.Database, dir: string = EVENTS_DIR
       get(target, prop, receiver) {
         if (prop === 'run') {
           return (...args: unknown[]) => {
-            const result = (target.run as (...a: unknown[]) => unknown)(...(args as never[]))
-            events.push({ t: new Date().toISOString(), s: sql, p: args.map((a) => (a === undefined ? null : a)) })
+            // Pin strftime('now') to the event timestamp during the ORIGINAL
+            // execution too, so capture and replay evaluate defaults to the
+            // exact same value (no millisecond race).
+            const t = new Date().toISOString()
+            replayNow = t
+            let result: unknown
+            try {
+              result = (target.run as (...a: unknown[]) => unknown)(...(args as never[]))
+            } finally {
+              replayNow = null
+            }
+            events.push({ t, s: sql, p: args.map((a) => (a === undefined ? null : a)) })
             return result
           }
         }
@@ -140,8 +150,15 @@ export function withEventCapture(db: Database.Database, dir: string = EVENTS_DIR
       if (prop === 'exec') {
         return (sql: string) => {
           if (MUTATING.test(sql)) {
-            const result = target.exec(sql)
-            events.push({ t: new Date().toISOString(), s: sql, p: [] })
+            const t = new Date().toISOString()
+            replayNow = t
+            let result: unknown
+            try {
+              result = target.exec(sql)
+            } finally {
+              replayNow = null
+            }
+            events.push({ t, s: sql, p: [] })
             return result
           }
           return target.exec(sql)
