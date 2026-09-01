@@ -8,3 +8,8 @@ data/*.mp4
 data/creatives/*/raw.mp4
 data/creatives/*/frames/
 data/testeval-frames/
+
+# Experience DB is a build artifact rebuilt from data/events/
+data/experience.db
+data/experience.db-wal
+data/experience.db-shm

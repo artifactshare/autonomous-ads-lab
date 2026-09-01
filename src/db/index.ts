@@ -1,9 +1,10 @@
 import Database from 'better-sqlite3'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync, rmSync } from 'node:fs'
 import { mkdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { config } from '../config.ts'
+import { eventFiles, installStrftime, replayEvents, withEventCapture } from './events.ts'
 
 const schemaPath = join(dirname(fileURLToPath(import.meta.url)), 'schema.sql')
 
@@ -19,12 +20,39 @@ function migrate(db: Database.Database): void {
   addColumn('deployments', 'post_url', 'post_url text')
 }
 
-export function openDb(path: string = config.dbPath): Database.Database {
-  if (path !== ':memory:') mkdirSync(dirname(path), { recursive: true })
-  const db = new Database(path)
+function initSchema(db: Database.Database): void {
   db.pragma('journal_mode = WAL')
   db.pragma('foreign_keys = ON')
   db.exec(readFileSync(schemaPath, 'utf8'))
   migrate(db)
-  return db
+}
+
+/**
+ * Open the Experience DB.
+ *
+ * The git-tracked source of truth is the append-only event log under
+ * data/events/ (see events.ts). The .db file is a build artifact: when the
+ * event log exists, the file is rebuilt from scratch by replaying it, and all
+ * new writes through the returned handle are captured as a new event file
+ * (flushed on close()). `:memory:` databases (tests) skip event sourcing.
+ */
+export function openDb(path: string = config.dbPath): Database.Database {
+  if (path === ':memory:') {
+    const db = new Database(path)
+    initSchema(db)
+    return db
+  }
+  mkdirSync(dirname(path), { recursive: true })
+  const hasEvents = eventFiles().length > 0
+  if (hasEvents) {
+    // Derived artifact: always rebuild from the log so the file can never drift.
+    for (const suffix of ['', '-wal', '-shm']) {
+      if (existsSync(path + suffix)) rmSync(path + suffix)
+    }
+  }
+  const db = new Database(path)
+  installStrftime(db)
+  initSchema(db)
+  if (hasEvents) replayEvents(db)
+  return withEventCapture(db)
 }
