@@ -1,7 +1,7 @@
 name: Weekly Learning
 on:
   schedule:
-    - cron: '0 23 * * 0' # Monday 08:00 JST
+    - cron: '13 23 * * 0' # Monday 08:00 JST
   workflow_dispatch:
 
 concurrency:

@@ -1,7 +1,7 @@
 name: Harness Agent
 on:
   schedule:
-    - cron: '0 0 * * 1' # Monday 09:00 JST, after weekly learning
+    - cron: '17 0 * * 1' # Monday 09:00 JST, after weekly learning
   workflow_dispatch:
 
 concurrency:
