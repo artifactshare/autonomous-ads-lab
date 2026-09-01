@@ -63,7 +63,17 @@ export async function decideAndAct(db: Database.Database, log: Logger): Promise<
     )
     .get(dep.creative_id) as { days: number; impressions: number; clicks: number; spend: number }
   const ctr = perf.impressions > 0 ? perf.clicks / perf.impressions : 0
-  const summary = `creative ${dep.creative_id}: ${perf.days}d, ${perf.impressions} imp, ${perf.clicks} clicks, CTR ${(ctr * 100).toFixed(2)}%, $${perf.spend.toFixed(2)}`
+  // GA4 outcomes for this creative's utm_campaign. Auto-deploys use
+  // exp-auto-{id}; creative 3 was deployed manually as exp001. Zero rows just
+  // means no synced conversions yet.
+  const campaigns = dep.creative_id === 3 ? [`exp-auto-${dep.creative_id}`, 'exp001'] : [`exp-auto-${dep.creative_id}`]
+  const conv = db
+    .prepare(
+      `select coalesce(sum(sessions),0) as sessions, coalesce(sum(sign_ups),0) as signUps
+       from conversions where campaign in (${campaigns.map(() => '?').join(',')})`,
+    )
+    .get(...campaigns) as { sessions: number; signUps: number }
+  const summary = `creative ${dep.creative_id}: ${perf.days}d, ${perf.impressions} imp, ${perf.clicks} clicks, CTR ${(ctr * 100).toFixed(2)}%, $${perf.spend.toFixed(2)}, GA4 ${conv.sessions} sessions / ${conv.signUps} sign_ups`
 
   if (perf.days < MIN_DAYS_EARLY) return [`decide: continue (${summary}; need ${MIN_DAYS_EARLY}d minimum)`]
   const earlyKill = ctr < EARLY_KILL_CTR

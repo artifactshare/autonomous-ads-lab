@@ -99,6 +99,16 @@ const done = [
   ...watchdogNotes,
 ]
 
+// Conversions: pull per-campaign sessions/sign_ups from GA4 so decide can
+// weigh real outcomes, not just CTR. Dormant until the GA4 secrets are set.
+try {
+  const { syncGa4Conversions } = await import('./ga4.ts')
+  done.push(...(await syncGa4Conversions(db, log)))
+} catch (err) {
+  log.error('ga4_sync_failed', { error: String(err).slice(0, 500) })
+  done.push(`ga4 sync failed: ${String(err).slice(0, 200)}`)
+}
+
 // Decide: continue or start a new creative generation from real performance.
 if (process.env.FAL_KEY && process.env.CLAUDE_CODE_OAUTH_TOKEN) {
   try {

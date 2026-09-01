@@ -179,3 +179,15 @@ create index if not exists idx_creatives_experiment on creatives(experiment_id);
 create index if not exists idx_evaluations_creative on evaluations(creative_id);
 create index if not exists idx_performance_creative on performance(creative_id);
 create index if not exists idx_ledger_created on budget_ledger(created_at);
+
+-- GA4 conversions per campaign per day (synced from the Data API by daily ops).
+-- campaign is the utm_campaign value (e.g. exp001, exp-auto-{creative_id}).
+create table if not exists conversions (
+  id integer primary key,
+  date text not null,
+  campaign text not null,
+  sessions integer not null default 0,
+  sign_ups integer not null default 0,
+  synced_at text not null default (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  unique (date, campaign)
+);
