@@ -70,9 +70,12 @@ export async function syncGa4Conversions(db: Database.Database, log: Logger): Pr
   let sessions = 0
   let signUps = 0
   for (const r of body.rows ?? []) {
-    const [d, campaign] = [r.dimensionValues[0].value, r.dimensionValues[1].value]
+    const d = r.dimensionValues[0]?.value ?? ''
+    const campaign = r.dimensionValues[1]?.value ?? '(not set)'
+    if (d.length !== 8) continue
     const date = `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}`
-    const [s, c] = [Number(r.metricValues[0].value), Number(r.metricValues[1].value)]
+    const s = Number(r.metricValues[0]?.value ?? 0)
+    const c = Number(r.metricValues[1]?.value ?? 0)
     upsert.run(date, campaign, s, c)
     sessions += s
     signUps += c
