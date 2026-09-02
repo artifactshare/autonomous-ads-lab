@@ -10,6 +10,10 @@
 | copywriting | **sonnet-5** | high | 言葉が上手で安い | 広告コピー、hook/CTAバリアント |
 | narrative | **sonnet-5** | high | 同上 | ジャーナル・レポートの文章 |
 
+## 週次 strategist（fable）
+
+`prompts/strategist.md` を `claude -p --model claude-fable-5` で週1回実行する（`.github/workflows/strategist.yml`）。前提の再検証・`docs/strategy.md` のイシューツリー更新・アイデアの順位づけが仕事で、hypothesis role と同じ「前提を疑う」用途なので fable を使う。CLI 経由のため `modelFor` の週次キャップは通らない。週1回固定で、hypothesis role の週3回枠と合わせて fable は週4回まで。
+
 ## 運用原則
 
 - **fableはピンポイント**。判断の質が実験全体を左右する箇所（前提を疑うべき箇所）だけ。ルーチン化した判断はopus/sonnetへ降格していく

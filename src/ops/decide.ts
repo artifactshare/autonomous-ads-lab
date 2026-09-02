@@ -73,7 +73,16 @@ export async function decideAndAct(db: Database.Database, log: Logger): Promise<
        from conversions where campaign in (${campaigns.map(() => '?').join(',')})`,
     )
     .get(...campaigns) as { sessions: number; signUps: number }
-  const summary = `creative ${dep.creative_id}: ${perf.days}d, ${perf.impressions} imp, ${perf.clicks} clicks, CTR ${(ctr * 100).toFixed(2)}%, $${perf.spend.toFixed(2)}, GA4 ${conv.sessions} sessions / ${conv.signUps} sign_ups`
+  // Objective ladder (docs/strategy.md): CTR is only a guard against dead
+  // creatives. What we buy is developers landing on the site, so the number
+  // to beat is cost per landed session; sign-ups are the north star we record
+  // but cannot yet decide on at this budget.
+  const landRate = perf.clicks > 0 ? conv.sessions / perf.clicks : 0
+  const costPerSession = conv.sessions > 0 ? perf.spend / conv.sessions : null
+  const summary =
+    `creative ${dep.creative_id}: ${perf.days}d, ${perf.impressions} imp, ${perf.clicks} clicks, CTR ${(ctr * 100).toFixed(2)}%, $${perf.spend.toFixed(2)}, ` +
+    `GA4 ${conv.sessions} sessions (${(landRate * 100).toFixed(0)}% of clicks landed` +
+    `${costPerSession === null ? '' : `, $${costPerSession.toFixed(2)}/session`}) / ${conv.signUps} sign_ups`
 
   if (perf.days < MIN_DAYS_EARLY) return [`decide: continue (${summary}; need ${MIN_DAYS_EARLY}d minimum)`]
   const earlyKill = ctr < EARLY_KILL_CTR
@@ -89,7 +98,7 @@ export async function decideAndAct(db: Database.Database, log: Logger): Promise<
   const repo = new CreativeRepo(db)
   const experimentId = repo.createExperiment({
     domain: 'x-video-ads',
-    objective: 'beat the deployed creative on CTR (website traffic)',
+    objective: 'beat the deployed creative on cost per landed session (GA4); sign-ups are the north star',
     hypothesis: proposal.hypothesis,
     budgetAllocatedUsd: CHALLENGERS * 0.4,
   })
@@ -158,10 +167,21 @@ All creatives (with AI pre-scores; scores are predictions to beat):
 ${JSON.stringify(past, null, 1)}
 Recent learnings: ${learnings.map((l) => l.insight).join(' / ')}
 
+## Objective (read carefully)
+We are NOT optimizing raw CTR. X counts video taps and mis-taps as clicks; a clickbait
+hook wins CTR and loses the real goal. The goal is developers who actually land on
+artifactshare.com (GA4 sessions per dollar) and eventually sign up and share. Prefer
+hooks that a developer would click *because they recognize their own workflow*, and
+that set an honest expectation of what the landing page shows. Treat "curiosity gap"
+tricks and absurdist bait as negative unless our own data says they land.
+Before proposing, state in one sentence which premise of the current creative you are
+challenging (audience, pain, promise, or format) and why our results suggest it.
+
 ## Task
-State ONE testable hypothesis about what will raise CTR versus the deployed creative,
-then propose ${CHALLENGERS} challenger creatives that test it from different angles.
-Output ONLY JSON: {"hypothesis": string, "creatives": [{"concept","hook","message","cta","prompt"} x${CHALLENGERS}]}
+State ONE testable hypothesis about what will lower cost per landed session versus the
+deployed creative, then propose ${CHALLENGERS} challenger creatives that test it from
+different angles.
+Output ONLY JSON: {"premise_challenged": string, "hypothesis": string, "creatives": [{"concept","hook","message","cta","prompt"} x${CHALLENGERS}]}
 - hook: <=60 chars, burned onto the opening frames
 - cta: <=40 chars, end card
 - prompt: H3 Max video prompt following the knowledge above; no readable text in the video`
@@ -176,7 +196,7 @@ Output ONLY JSON: {"hypothesis": string, "creatives": [{"concept","hook","messag
   }
   const match = text.match(/\{[\s\S]*\}/)
   if (!match) throw new Error(`hypothesis LLM returned no JSON: ${text.slice(0, 300)}`)
-  const raw = JSON.parse(match[0]) as { hypothesis?: unknown; creatives?: unknown }
+  const raw = JSON.parse(match[0]) as { premise_challenged?: unknown; hypothesis?: unknown; creatives?: unknown }
   const creatives = (Array.isArray(raw.creatives) ? raw.creatives : []).filter(
     (c): c is ProposedCreative =>
       !!c && ['concept', 'hook', 'message', 'cta', 'prompt'].every((k) => typeof (c as Record<string, unknown>)[k] === 'string'),
@@ -184,7 +204,8 @@ Output ONLY JSON: {"hypothesis": string, "creatives": [{"concept","hook","messag
   if (typeof raw.hypothesis !== 'string' || creatives.length === 0) {
     throw new Error('hypothesis LLM output missing hypothesis/creatives')
   }
-  log.info('challengers_proposed', { hypothesis: raw.hypothesis, count: creatives.length })
-  return { hypothesis: raw.hypothesis, creatives }
+  const premise = typeof raw.premise_challenged === 'string' ? raw.premise_challenged : undefined
+  log.info('challengers_proposed', { premise, hypothesis: raw.hypothesis, count: creatives.length })
+  return { hypothesis: premise ? `[challenging: ${premise}] ${raw.hypothesis}` : raw.hypothesis, creatives }
 }
 
