@@ -69,20 +69,17 @@ export async function decideAndAct(db: Database.Database, log: Logger): Promise<
   const campaigns = dep.creative_id === 3 ? [`exp-auto-${dep.creative_id}`, 'exp001'] : [`exp-auto-${dep.creative_id}`]
   const conv = db
     .prepare(
-      `select coalesce(sum(sessions),0) as sessions, coalesce(sum(sign_ups),0) as signUps
+      `select count(*) as syncedDays, coalesce(sum(sessions),0) as sessions, coalesce(sum(sign_ups),0) as signUps
        from conversions where campaign in (${campaigns.map(() => '?').join(',')})`,
     )
-    .get(...campaigns) as { sessions: number; signUps: number }
+    .get(...campaigns) as { syncedDays: number; sessions: number; signUps: number }
   // Objective ladder (docs/strategy.md): CTR is only a guard against dead
   // creatives. What we buy is developers landing on the site, so the number
   // to beat is cost per landed session; sign-ups are the north star we record
   // but cannot yet decide on at this budget.
-  const landRate = perf.clicks > 0 ? conv.sessions / perf.clicks : 0
-  const costPerSession = conv.sessions > 0 ? perf.spend / conv.sessions : null
   const summary =
     `creative ${dep.creative_id}: ${perf.days}d, ${perf.impressions} imp, ${perf.clicks} clicks, CTR ${(ctr * 100).toFixed(2)}%, $${perf.spend.toFixed(2)}, ` +
-    `GA4 ${conv.sessions} sessions (${(landRate * 100).toFixed(0)}% of clicks landed` +
-    `${costPerSession === null ? '' : `, $${costPerSession.toFixed(2)}/session`}) / ${conv.signUps} sign_ups`
+    formatGa4Outcomes(conv, perf.clicks, perf.spend)
 
   if (perf.days < MIN_DAYS_EARLY) return [`decide: continue (${summary}; need ${MIN_DAYS_EARLY}d minimum)`]
   const earlyKill = ctr < EARLY_KILL_CTR
@@ -134,6 +131,23 @@ export async function decideAndAct(db: Database.Database, log: Logger): Promise<
     `winner: creative ${winner.creativeId} (${winner.overall}/10) — awaiting bridge auto-deploy (next 06:30 JST run)`,
   )
   return notes
+}
+
+// A conversions table with no synced rows means the GA4 sync has not delivered
+// data yet — not that zero developers landed. The hypothesis LLM reads this
+// summary verbatim, so an unmeasured landing rate must never render as "0%".
+export function formatGa4Outcomes(
+  conv: { syncedDays: number; sessions: number; signUps: number },
+  clicks: number,
+  spend: number,
+): string {
+  if (conv.syncedDays === 0) return 'GA4 not synced yet (landing rate unmeasured — not 0%)'
+  const landRate = clicks > 0 ? conv.sessions / clicks : 0
+  const costPerSession = conv.sessions > 0 ? spend / conv.sessions : null
+  return (
+    `GA4 ${conv.sessions} sessions (${(landRate * 100).toFixed(0)}% of clicks landed` +
+    `${costPerSession === null ? '' : `, $${costPerSession.toFixed(2)}/session`}) / ${conv.signUps} sign_ups`
+  )
 }
 
 async function proposeChallengers(
