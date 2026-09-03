@@ -30,7 +30,12 @@ create table if not exists creatives (
   generation_request_id text, -- provider job id, persisted before polling for crash recovery
   asset_url text,
   generation_cost_usd real,
-  generation_latency_ms integer
+  generation_latency_ms integer,
+  generation_price_per_second_usd real,
+  generation_pricing_checked_at text,
+  generation_pricing_source text,
+  generation_promotion_ends_at text,
+  deployment_eligible integer not null default 1
 );
 
 create table if not exists evaluations (

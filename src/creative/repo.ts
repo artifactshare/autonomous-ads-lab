@@ -20,6 +20,7 @@ export interface NewCreative {
   cta: string
   prompt: string
   seed?: number
+  deploymentEligible?: boolean
 }
 
 export class CreativeRepo {
@@ -42,8 +43,8 @@ export class CreativeRepo {
     const info = this.db
       .prepare(
         `insert into creatives
-           (experiment_id, parent_creative_id, role, concept, hook, message, cta, prompt, seed)
-         values (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           (experiment_id, parent_creative_id, role, concept, hook, message, cta, prompt, seed, deployment_eligible)
+         values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         c.experimentId,
@@ -55,6 +56,7 @@ export class CreativeRepo {
         c.cta,
         c.prompt,
         c.seed ?? null,
+        c.deploymentEligible === false ? 0 : 1,
       )
     return Number(info.lastInsertRowid)
   }
@@ -70,7 +72,9 @@ export class CreativeRepo {
     this.db
       .prepare(
         `update creatives set expanded_prompt = ?, seed = ?, generation_settings = ?,
-           asset_url = ?, generation_cost_usd = ?, generation_latency_ms = ? where id = ?`,
+           asset_url = ?, generation_cost_usd = ?, generation_latency_ms = ?,
+           generation_price_per_second_usd = ?, generation_pricing_checked_at = ?,
+           generation_pricing_source = ?, generation_promotion_ends_at = ? where id = ?`,
       )
       .run(
         typeof (r.raw as { expanded_prompt?: string })?.expanded_prompt === 'string'
@@ -81,6 +85,10 @@ export class CreativeRepo {
         r.assetUrl,
         r.costUsd,
         r.latencyMs,
+        r.pricing?.perSecondUsd ?? null,
+        r.pricing?.checkedAt ?? null,
+        r.pricing?.sourceUrl ?? null,
+        r.pricing?.promotionEndsAt ?? null,
         creativeId,
       )
   }
@@ -145,6 +153,33 @@ export class CreativeRepo {
         result.usage.outputTokens,
         result.usage.thoughtTokens,
         result.costUsd,
+      )
+    return Number(info.lastInsertRowid)
+  }
+
+  recordLearning(input: {
+    experimentId: number
+    observation: string
+    hypothesis?: string
+    evidence?: string
+    confidence: 'low' | 'medium' | 'high' | 'insufficient_data'
+    lesson?: string
+    recommendedAction?: string
+  }): number {
+    const info = this.db
+      .prepare(
+        `insert into learnings
+           (experiment_id, observation, hypothesis, evidence, confidence, lesson, recommended_action)
+         values (?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run(
+        input.experimentId,
+        input.observation,
+        input.hypothesis ?? null,
+        input.evidence ?? null,
+        input.confidence,
+        input.lesson ?? null,
+        input.recommendedAction ?? null,
       )
     return Number(info.lastInsertRowid)
   }

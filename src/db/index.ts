@@ -16,6 +16,11 @@ function migrate(db: Database.Database): void {
     if (!cols.some((c) => c.name === column)) db.exec(`alter table ${table} add column ${ddl}`)
   }
   addColumn('creatives', 'generation_request_id', 'generation_request_id text')
+  addColumn('creatives', 'generation_price_per_second_usd', 'generation_price_per_second_usd real')
+  addColumn('creatives', 'generation_pricing_checked_at', 'generation_pricing_checked_at text')
+  addColumn('creatives', 'generation_pricing_source', 'generation_pricing_source text')
+  addColumn('creatives', 'generation_promotion_ends_at', 'generation_promotion_ends_at text')
+  addColumn('creatives', 'deployment_eligible', 'deployment_eligible integer not null default 1')
   // Public URL of the promoted post; discovered automatically by daily ops.
   addColumn('deployments', 'post_url', 'post_url text')
 }

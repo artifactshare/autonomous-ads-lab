@@ -27,7 +27,8 @@
 
 | モデル | 5秒1本 | $10で | seed | アスペクト比 |
 |---|---|---|---|---|
-| `minimax/h3-max/text-to-video` (768p) | $0.40（〜9/1割引 $0.20） | 25本（割引中50本） | 可 | 16:9 / 1:1 / 9:16 ほか |
+| `minimax/h3-max/text-to-video` (768p) | $0.64 / 8秒（〜9/7割引 $0.16） | 約15本 | 可 | 16:9 / 1:1 / 9:16 ほか |
+| `minimax/h3-max-turbo/text-to-video` (768p) | $0.32 / 8秒（〜9/7割引 $0.08） | 約31本 | 可 | 16:9 / 1:1 / 9:16 ほか |
 | `fal-ai/bytedance/seedance/v1/pro/fast/text-to-video` (1080p) | ≈$0.245 | 約40本 | 可 | 16:9 / 9:16 / 1:1 |
 | `fal-ai/veo3.1/fast` (720p+) | $0.50〜0.75 | 13〜20本 | 不明 | 要スキーマ確認 |
 | `fal-ai/kling-video/v2.5-turbo/pro/text-to-video` | $0.35 | 約28本 | 不可 | 16:9 / 9:16 / 1:1 |

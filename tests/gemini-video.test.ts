@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { applyVideoHardGate } from '../src/creative/pipeline.ts'
+import { applyVideoHardGate, assertArtifactShareDomain } from '../src/creative/pipeline.ts'
 import { CreativeRepo } from '../src/creative/repo.ts'
 import { openDb } from '../src/db/index.ts'
 import {
@@ -112,6 +112,26 @@ describe('applyVideoHardGate', () => {
     expect(result.disqualified).toBe(true)
     expect(result.failure_modes).toContain('video: severe flicker')
     expect(result.critic_notes).toContain('Gemini full-video gate')
+  })
+})
+
+describe('ad copy domain guard', () => {
+  const creative = {
+    experimentId: 1,
+    role: 'challenger' as const,
+    concept: 'test',
+    hook: 'One link',
+    message: 'Use one living URL',
+    cta: 'Try artifactshare.com',
+    prompt: 'test',
+  }
+
+  it('accepts the canonical product domain', () => {
+    expect(() => assertArtifactShareDomain(creative, { hook: 'One link', brand: 'artifactshare.com', cta: 'Try it' })).not.toThrow()
+  })
+
+  it('rejects stale domains before paid generation', () => {
+    expect(() => assertArtifactShareDomain({ ...creative, cta: 'Try artifactshare.net' })).toThrow('conflicting domain')
   })
 })
 

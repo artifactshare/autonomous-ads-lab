@@ -3,7 +3,7 @@ import { mkdirSync } from 'node:fs'
 import type Database from 'better-sqlite3'
 import { BudgetController } from '../budget/controller.ts'
 import type { Logger } from '../logging/logger.ts'
-import { H3MaxGenerator } from '../generation/fal/h3max.ts'
+import { H3Generator, H3MaxTurboGenerator } from '../generation/fal/h3max.ts'
 import type { VideoSpec } from '../generation/types.ts'
 import { extractFrames } from '../evaluation/frames.ts'
 import { Evaluator } from '../evaluation/evaluator.ts'
@@ -21,10 +21,11 @@ export async function produceCreative(
   creative: NewCreative,
   video: Omit<VideoSpec, 'prompt' | 'seed'>,
   overlay?: OverlayText,
+  gen: H3Generator = new H3MaxTurboGenerator(),
 ): Promise<{ creativeId: number; disqualified: boolean; overall: number; videoPath: string }> {
+  assertArtifactShareDomain(creative, overlay)
   const repo = new CreativeRepo(db)
   const budget = new BudgetController(db)
-  const gen = new H3MaxGenerator()
   const evaluator = new Evaluator()
   // Instantiate before the paid video generation so a missing Gemini key
   // cannot leave us with a generated candidate that is ineligible to deploy.
@@ -63,7 +64,7 @@ export async function produceCreative(
   execFileSync('curl', ['-sfL', '-o', rawPath, result.assetUrl])
   // Readable copy (brand/CTA) is burned in post; the evaluation must see the
   // final ad, not the raw generation.
-  const videoPath = overlay ? applyOverlay(rawPath, `${workDir}/final.mp4`, overlay) : rawPath
+  const videoPath = overlay ? applyOverlay(rawPath, `${workDir}/final.mp4`, overlay, spec.durationSec) : rawPath
   const frames = extractFrames(videoPath, `${workDir}/frames`)
   const frameScores = await evaluator.evaluate(frames, creative)
 
@@ -118,6 +119,16 @@ export async function produceCreative(
   })
 
   return { creativeId, disqualified: scores.disqualified, overall: scores.overall_score, videoPath }
+}
+
+/** Fail before creative creation or paid generation when ad copy points at a stale domain. */
+export function assertArtifactShareDomain(creative: NewCreative, overlay?: OverlayText): void {
+  const text = [creative.hook, creative.message, creative.cta, overlay?.hook, overlay?.brand, overlay?.cta]
+    .filter(Boolean)
+    .join(' ')
+  const domains = text.match(/artifactshare\.[a-z0-9.-]+/gi) ?? []
+  const invalid = domains.find((domain) => domain.toLowerCase() !== 'artifactshare.com')
+  if (invalid) throw new Error(`creative copy contains stale or conflicting domain: ${invalid}`)
 }
 
 /**

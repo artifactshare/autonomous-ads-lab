@@ -15,6 +15,8 @@ confidence 基準: 公式(fal/MiniMax) = high / 第三者ガイド・作例 = me
   出典: https://fal.ai/minimax-h3-max , https://x.com/ArtificialAnlys/status/2092717615739494424 — confidence: high
 - H3 Max のエンドポイント: text-to-video / image-to-video（`end_image_url` で first→last キーフレーム指定可）。reference-to-video は後日予定。アスペクト比 21:9 / 16:9 / 4:3 / 1:1 / 3:4 / 9:16。解像度 480p / 768p（1344×768）。duration 5〜15秒（整数）。prompt expansion: balanced(デフォルト)/fast/quality。
   出典: https://fal.ai/minimax-h3-max — confidence: high
+- H3 Max Turbo の text-to-video endpoint は `minimax/h3-max-turbo/text-to-video`。H3 Maxと同じ5〜15秒、480P/768P、seed、aspect ratio、balanced/quality prompt expansionを受け付ける。2026-09-03確認時の768P価格は9月7日まで$0.01/秒、その後$0.04/秒。H3 Max側も同日まで$0.02/秒、その後$0.08/秒。
+  出典: https://fal.ai/models/minimax/h3-max-turbo/text-to-video/api , https://fal.ai/models/minimax/h3-max/text-to-video/api — confidence: high（価格は変動しうる）
 - 価格: H3 Max 768p $0.08/秒（ローンチ後14日は半額、無料枠あり）。base H3 は $0.06/秒(768p)〜$0.13/秒(2K)。
   出典: https://fal.ai/minimax-h3-max — confidence: high（価格は変動しうる）
 - **fal 公式推奨設定: 768p・5〜10秒・prompt expansion は balanced のまま・映像と音声の両方をプロンプトに書く。** — confidence: high
