@@ -1,6 +1,7 @@
 import type Database from 'better-sqlite3'
 import type { GenerationResult } from '../generation/types.ts'
 import type { EvaluationScores } from '../evaluation/evaluator.ts'
+import type { GeminiVideoEvaluationResult } from '../evaluation/gemini-video.ts'
 
 export interface NewExperiment {
   domain: string
@@ -107,6 +108,43 @@ export class CreativeRepo {
         s.disqualified ? 1 : 0,
         JSON.stringify(s.failure_modes),
         s.critic_notes,
+      )
+    return Number(info.lastInsertRowid)
+  }
+
+  recordVideoEvaluation(creativeId: number, result: GeminiVideoEvaluationResult): number {
+    const s = result.scores
+    const info = this.db
+      .prepare(
+        `insert into video_evaluations
+           (creative_id, model, harness_version, content_summary, message_understood,
+            temporal_coherence, motion_quality, audio_quality, audio_visual_sync,
+            narrative_clarity, artifact_score, overall_score, disqualified,
+            failure_modes, key_moments, critic_notes, input_tokens, output_tokens,
+            thought_tokens, cost_usd)
+         values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run(
+        creativeId,
+        result.model,
+        result.harnessVersion,
+        s.content_summary,
+        s.message_understood,
+        s.temporal_coherence,
+        s.motion_quality,
+        s.audio_quality,
+        s.audio_visual_sync,
+        s.narrative_clarity,
+        s.artifact_score,
+        s.overall_score,
+        s.disqualified ? 1 : 0,
+        JSON.stringify(s.failure_modes),
+        JSON.stringify(s.key_moments),
+        s.critic_notes,
+        result.usage.inputTokens,
+        result.usage.outputTokens,
+        result.usage.thoughtTokens,
+        result.costUsd,
       )
     return Number(info.lastInsertRowid)
   }
