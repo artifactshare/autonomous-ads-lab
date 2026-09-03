@@ -23,7 +23,7 @@ const MIN_DAYS_EARLY = 3
 const MIN_DAYS_FULL = 7
 const EARLY_KILL_CTR = 0.0015 // 0.15%: clearly dead for a traffic objective
 const CHALLENGERS = 3
-const VIDEO = { aspectRatio: '16:9', durationSec: 5, resolution: '768P' } as const
+const VIDEO = { aspectRatio: '16:9', durationSec: 8, resolution: '768P' } as const
 const BRAND = 'artifactshare.com'
 
 interface ProposedCreative {
@@ -47,6 +47,7 @@ export async function decideAndAct(db: Database.Database, log: Logger): Promise<
       `select count(*) as n from creatives c
        join evaluations e on e.creative_id = c.id
        where c.id > ? and e.disqualified = 0
+         and c.deployment_eligible = 1
          and c.id not in (select creative_id from deployments)`,
     )
     .get(dep.creative_id) as { n: number }
@@ -97,7 +98,9 @@ export async function decideAndAct(db: Database.Database, log: Logger): Promise<
     domain: 'x-video-ads',
     objective: 'beat the deployed creative on cost per landed session (GA4); sign-ups are the north star',
     hypothesis: proposal.hypothesis,
-    budgetAllocatedUsd: CHALLENGERS * 0.4,
+    // 8s H3 Max Turbo at post-promotion list price ($0.04/s). The hard
+    // Budget Controller still authorizes each actual request separately.
+    budgetAllocatedUsd: CHALLENGERS * 0.32,
   })
   notes.push(`hypothesis (experiment ${experimentId}): ${proposal.hypothesis}`)
 
@@ -169,7 +172,7 @@ async function proposeChallengers(
   const prompt = `You design the next generation of short X video ads for Artifact Share
 (https://artifactshare.com): share one URL for an AI-generated artifact, get comments,
 let AI update it at the same URL. Audience: English-speaking developers using AI coding
-agents. Videos are 5s MiniMax H3 Max generations; readable text is burned in later, so
+agents. Videos are 8s MiniMax H3 generations; readable text is burned in later, so
 prompts must ask for NO readable on-screen text.
 
 ## Internalized knowledge (source-attributed)
@@ -222,4 +225,3 @@ Output ONLY JSON: {"premise_challenged": string, "hypothesis": string, "creative
   log.info('challengers_proposed', { premise, hypothesis: raw.hypothesis, count: creatives.length })
   return { hypothesis: premise ? `[challenging: ${premise}] ${raw.hypothesis}` : raw.hypothesis, creatives }
 }
-

@@ -13,6 +13,12 @@ export interface GenerationResult {
   settings: Record<string, unknown>
   costUsd: number
   latencyMs: number
+  pricing?: {
+    sourceUrl: string
+    checkedAt: string
+    perSecondUsd: number
+    promotionEndsAt: string | null
+  }
   raw: unknown
 }
 

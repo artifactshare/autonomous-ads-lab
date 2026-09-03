@@ -26,16 +26,18 @@ function fontFile(): string {
 const esc = (s: string) => s.replace(/\\/g, '\\\\').replace(/'/g, "\\\\'").replace(/:/g, '\\:')
 
 /** Burn hook text + end card onto a video. Returns the output path. */
-export function applyOverlay(inputPath: string, outputPath: string, text: OverlayText): string {
+export function applyOverlay(inputPath: string, outputPath: string, text: OverlayText, durationSec = 5): string {
   const font = fontFile()
   const common = `fontfile=${font}:fontcolor=white:borderw=3:bordercolor=black@0.85`
+  const hookEnd = durationSec * 0.4
+  const endStart = Math.max(hookEnd, durationSec - 1.6)
   const filters = [
     // Hook: top area, first 40% of the video.
-    `drawtext=${common}:fontsize=h/14:text='${esc(text.hook)}':x=(w-text_w)/2:y=h/8:enable='lt(t,2)'`,
+    `drawtext=${common}:fontsize=h/14:text='${esc(text.hook)}':x=(w-text_w)/2:y=h/8:enable='lt(t,${hookEnd})'`,
     // End card: darken + brand + CTA for the final 1.6s.
-    `drawbox=x=0:y=0:w=iw:h=ih:color=black@0.55:t=fill:enable='gte(t,3.4)'`,
-    `drawtext=${common}:fontsize=h/10:text='${esc(text.brand)}':x=(w-text_w)/2:y=(h-text_h)/2-h/12:enable='gte(t,3.4)'`,
-    `drawtext=${common}:fontsize=h/16:text='${esc(text.cta)}':x=(w-text_w)/2:y=(h-text_h)/2+h/16:enable='gte(t,3.4)'`,
+    `drawbox=x=0:y=0:w=iw:h=ih:color=black@0.55:t=fill:enable='gte(t,${endStart})'`,
+    `drawtext=${common}:fontsize=h/10:text='${esc(text.brand)}':x=(w-text_w)/2:y=(h-text_h)/2-h/12:enable='gte(t,${endStart})'`,
+    `drawtext=${common}:fontsize=h/16:text='${esc(text.cta)}':x=(w-text_w)/2:y=(h-text_h)/2+h/16:enable='gte(t,${endStart})'`,
   ].join(',')
   execFileSync('ffmpeg', [
     '-hide_banner', '-loglevel', 'error', '-y',

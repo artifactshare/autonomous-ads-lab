@@ -1,32 +1,61 @@
 import type { GenerationResult, VideoGenerator, VideoSpec } from '../types.ts'
 
-const ENDPOINT = 'minimax/h3-max/text-to-video'
-const QUEUE_BASE = `https://queue.fal.run/${ENDPOINT}`
-// Request status/result URLs use the app alias (owner/app) WITHOUT the endpoint subpath.
-const REQUESTS_BASE = 'https://queue.fal.run/minimax/h3-max/requests'
+export type H3Variant = 'max' | 'max-turbo'
 
-// $/second by resolution (list price; promo discounts not assumed).
-const PRICE_PER_SEC: Record<string, number> = { '480P': 0.05, '768P': 0.08 }
+const PRICE_CHECKED_AT = '2026-09-03'
+const PROMOTION_END = '2026-09-08T00:00:00.000Z'
+const MODEL = {
+  max: {
+    endpoint: 'minimax/h3-max/text-to-video',
+    app: 'minimax/h3-max',
+    price: { promo: { '480P': 0.0125, '768P': 0.02 }, list: { '480P': 0.05, '768P': 0.08 } },
+  },
+  'max-turbo': {
+    endpoint: 'minimax/h3-max-turbo/text-to-video',
+    app: 'minimax/h3-max-turbo',
+    price: { promo: { '480P': 0.00625, '768P': 0.01 }, list: { '480P': 0.025, '768P': 0.04 } },
+  },
+} as const
 
 interface QueueStatus {
   status: 'IN_QUEUE' | 'IN_PROGRESS' | 'COMPLETED'
   response_url: string
 }
 
-export class H3MaxGenerator implements VideoGenerator {
-  readonly model = ENDPOINT
+export class H3Generator implements VideoGenerator {
+  readonly model: string
+  readonly variant: H3Variant
   private apiKey: string
   private pollIntervalMs: number
+  private now: () => Date
 
-  constructor(apiKey = process.env.FAL_KEY ?? '', pollIntervalMs = 3000) {
+  constructor(
+    variant: H3Variant,
+    apiKey = process.env.FAL_KEY ?? '',
+    pollIntervalMs = 3000,
+    now: () => Date = () => new Date(),
+  ) {
     if (!apiKey) throw new Error('FAL_KEY is not set')
+    this.variant = variant
+    this.model = MODEL[variant].endpoint
     this.apiKey = apiKey
     this.pollIntervalMs = pollIntervalMs
+    this.now = now
   }
 
   estimateCostUsd(spec: VideoSpec): number {
-    const perSec = PRICE_PER_SEC[spec.resolution ?? '768P'] ?? PRICE_PER_SEC['768P']!
-    return perSec * spec.durationSec
+    return this.pricing(spec).perSecondUsd * spec.durationSec
+  }
+
+  pricing(spec: VideoSpec): NonNullable<GenerationResult['pricing']> {
+    const resolution = spec.resolution === '480P' ? '480P' : '768P'
+    const promo = this.now().getTime() < new Date(PROMOTION_END).getTime()
+    return {
+      sourceUrl: `https://fal.ai/models/${this.model}/api`,
+      checkedAt: PRICE_CHECKED_AT,
+      perSecondUsd: MODEL[this.variant].price[promo ? 'promo' : 'list'][resolution],
+      promotionEndsAt: PROMOTION_END,
+    }
   }
 
   private buildSettings(spec: VideoSpec) {
@@ -35,6 +64,8 @@ export class H3MaxGenerator implements VideoGenerator {
       aspect_ratio: spec.aspectRatio,
       duration: spec.durationSec,
       resolution: spec.resolution ?? '768P',
+      enable_safety_checker: true,
+      prompt_expansion_mode: 'balanced',
       ...(spec.seed !== undefined ? { seed: spec.seed } : {}),
     }
   }
@@ -42,7 +73,7 @@ export class H3MaxGenerator implements VideoGenerator {
   /** Submit only. Persist the returned request id BEFORE polling so a crash
    *  or polling failure can be recovered without re-submitting (= re-paying). */
   async submit(spec: VideoSpec): Promise<string> {
-    const submit = await this.request(QUEUE_BASE, {
+    const submit = await this.request(`https://queue.fal.run/${this.model}`, {
       method: 'POST',
       body: JSON.stringify(this.buildSettings(spec)),
     })
@@ -63,7 +94,7 @@ export class H3MaxGenerator implements VideoGenerator {
     started: number = Date.now(),
   ): Promise<GenerationResult> {
     const settings = this.buildSettings(spec)
-    const statusUrl = `${REQUESTS_BASE}/${requestId}/status`
+    const statusUrl = `https://queue.fal.run/${MODEL[this.variant].app}/requests/${requestId}/status`
     let responseUrl: string | undefined
     // 10 min timeout: generation is normally seconds, so this indicates a stuck job.
     const deadline = started + 10 * 60 * 1000
@@ -91,6 +122,7 @@ export class H3MaxGenerator implements VideoGenerator {
       settings,
       costUsd: this.estimateCostUsd(spec),
       latencyMs: Date.now() - started,
+      pricing: this.pricing(spec),
       raw: result,
     }
   }
@@ -106,5 +138,18 @@ export class H3MaxGenerator implements VideoGenerator {
     })
     if (!res.ok) throw new Error(`fal ${init?.method ?? 'GET'} ${url} -> ${res.status}: ${await res.text()}`)
     return res.json()
+  }
+}
+
+/** Existing default and explicit rollback target. */
+export class H3MaxGenerator extends H3Generator {
+  constructor(apiKey = process.env.FAL_KEY ?? '', pollIntervalMs = 3000, now?: () => Date) {
+    super('max', apiKey, pollIntervalMs, now)
+  }
+}
+
+export class H3MaxTurboGenerator extends H3Generator {
+  constructor(apiKey = process.env.FAL_KEY ?? '', pollIntervalMs = 3000, now?: () => Date) {
+    super('max-turbo', apiKey, pollIntervalMs, now)
   }
 }
