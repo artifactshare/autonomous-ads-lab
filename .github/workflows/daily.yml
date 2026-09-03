@@ -32,6 +32,7 @@ jobs:
           XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
           FAL_KEY: ${{ secrets.FAL_KEY }}
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GA4_PROPERTY_ID: ${{ vars.GA4_PROPERTY_ID }}
           GA4_SA_KEY_B64: ${{ secrets.GA4_SA_KEY_B64 }}
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

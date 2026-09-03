@@ -51,6 +51,35 @@ create table if not exists evaluations (
   critic_notes text
 );
 
+-- Full-video quality inspection. The existing evaluations table is based on
+-- still frames; this preserves the temporal/audio verdict separately so the
+-- two predictors can be calibrated against actual ad outcomes later.
+create table if not exists video_evaluations (
+  id integer primary key,
+  created_at text not null default (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  creative_id integer not null references creatives(id),
+  model text not null,
+  harness_version text not null,
+  content_summary text not null,
+  message_understood text not null,
+  temporal_coherence real not null,
+  motion_quality real not null,
+  audio_quality real not null,
+  audio_visual_sync real not null,
+  narrative_clarity real not null,
+  artifact_score real not null,
+  overall_score real not null,
+  disqualified integer not null default 0,
+  failure_modes text not null,
+  key_moments text not null,
+  critic_notes text not null,
+  input_tokens integer not null default 0,
+  output_tokens integer not null default 0,
+  thought_tokens integer not null default 0,
+  cost_usd real not null default 0,
+  unique(creative_id, model, harness_version)
+);
+
 create table if not exists deployments (
   id integer primary key,
   created_at text not null default (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
@@ -177,6 +206,7 @@ create index if not exists idx_run_logs_run on run_logs(run_id);
 
 create index if not exists idx_creatives_experiment on creatives(experiment_id);
 create index if not exists idx_evaluations_creative on evaluations(creative_id);
+create index if not exists idx_video_evaluations_creative on video_evaluations(creative_id);
 create index if not exists idx_performance_creative on performance(creative_id);
 create index if not exists idx_ledger_created on budget_ledger(created_at);
 

@@ -110,7 +110,7 @@ try {
 }
 
 // Decide: continue or start a new creative generation from real performance.
-if (process.env.FAL_KEY && process.env.CLAUDE_CODE_OAUTH_TOKEN) {
+if (process.env.FAL_KEY && process.env.CLAUDE_CODE_OAUTH_TOKEN && process.env.GEMINI_API_KEY) {
   try {
     const { decideAndAct } = await import('./decide.ts')
     done.push(...(await decideAndAct(db, log)))
@@ -119,7 +119,7 @@ if (process.env.FAL_KEY && process.env.CLAUDE_CODE_OAUTH_TOKEN) {
     done.push(`decide step failed: ${String(err).slice(0, 200)}`)
   }
 } else {
-  log.warn('decide_skipped', { reason: 'FAL_KEY or CLAUDE_CODE_OAUTH_TOKEN not set' })
+  log.warn('decide_skipped', { reason: 'FAL_KEY, CLAUDE_CODE_OAUTH_TOKEN, or GEMINI_API_KEY not set' })
 }
 // Watchdog: auto-merge is how every automated run reaches main. If it stalls,
 // the run's DB update and journal entry never land and nothing says so.

@@ -94,8 +94,15 @@ export function renderLivingReportHtml(db: Database.Database): string {
   const creatives = db
     .prepare(
       `select c.id, c.role, c.concept, c.hook, c.message, c.cta, c.generation_cost_usd, c.created_at,
-              e.overall_score, e.disqualified, e.critic_notes
-       from creatives c left join evaluations e on e.creative_id = c.id order by c.id desc`,
+              e.overall_score, e.disqualified, e.critic_notes,
+              ve.overall_score as video_overall_score, ve.disqualified as video_disqualified,
+              ve.content_summary as video_content_summary, ve.critic_notes as video_critic_notes
+       from creatives c
+       left join evaluations e on e.creative_id = c.id
+       left join video_evaluations ve on ve.id = (
+         select id from video_evaluations where creative_id = c.id order by id desc limit 1
+       )
+       order by c.id desc`,
     )
     .all() as Record<string, unknown>[]
   const learnings = db.prepare('select * from learnings order by id desc').all() as Record<string, unknown>[]
@@ -326,6 +333,7 @@ ${cardCreatives
   <p class="meta">${esc(String(c.role))} · 生成 ${day(c.created_at) ?? '—'} · コスト ${money(c.generation_cost_usd)}</p>
   <p class="copy">フック「${esc(c.hook)}」 / CTA「${esc(c.cta)}」</p>
   <p class="scores">AI評価: <b class="num">${c.overall_score ?? '—'}</b> / 10${c.critic_notes ? `<br><span class="meta">${esc(String(c.critic_notes).slice(0, 200))}${String(c.critic_notes).length > 200 ? '…' : ''}</span>` : ''}</p>
+  ${c.video_overall_score == null ? '' : `<p class="scores">Gemini動画評価: <b class="num">${c.video_overall_score}</b> / 10${c.video_disqualified ? ' · 失格' : ''}<br><span class="meta">${esc(c.video_content_summary)}${c.video_critic_notes ? `<br>${esc(c.video_critic_notes)}` : ''}</span></p>`}
 </div>
 </div>`
   })

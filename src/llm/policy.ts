@@ -9,11 +9,14 @@
 //   interpretation, prediction-vs-actual comparison, budget allocation.
 // - sonnet-5: cheap, best prose. Default for everything language-heavy and
 //   frequent: creative copy, evaluation rubric scoring, report/journal prose.
+// - gemini-3.8-flash: full-video inspection. Its native video input catches
+//   temporal and audio defects that the Claude still-frame rubric cannot see.
 
 export type LlmRole =
   | 'hypothesis' // generate/refine hypotheses, design validation -> fable
   | 'analysis' // metrics math, prediction-vs-actual, allocation -> opus
   | 'evaluation' // per-creative rubric scoring (frequent) -> sonnet
+  | 'video_evaluation' // temporal/audio inspection of the complete ad -> Gemini
   | 'copywriting' // ad copy, hooks, CTA variants -> sonnet
   | 'narrative' // journal/report prose -> sonnet
 
@@ -21,6 +24,7 @@ export const MODEL_FOR_ROLE: Record<LlmRole, string> = {
   hypothesis: 'claude-fable-5',
   analysis: 'claude-opus-5',
   evaluation: 'claude-sonnet-5',
+  video_evaluation: 'gemini-3.8-flash',
   copywriting: 'claude-sonnet-5',
   narrative: 'claude-sonnet-5',
 }
@@ -67,7 +71,7 @@ export function modelFor(role: LlmRole, db?: import('better-sqlite3').Database):
       if (fableCallsThisRun > FABLE_CALLS_PER_WEEK) model = MODEL_FOR_ROLE.analysis
     }
   }
-  const effort = model === 'claude-fable-5' ? 'low' : 'high'
+  const effort = model === 'claude-fable-5' || role === 'video_evaluation' ? 'low' : 'high'
   return { model, effort }
 }
 
