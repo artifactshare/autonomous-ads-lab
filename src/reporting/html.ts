@@ -106,6 +106,15 @@ export function renderLivingReportHtml(db: Database.Database): string {
     )
     .all() as Record<string, unknown>[]
   const learnings = db.prepare('select * from learnings order by id desc').all() as Record<string, unknown>[]
+  const reactions = db
+    .prepare(
+      `select r.*, c.concept from ad_reactions r
+       left join creatives c on c.id = r.creative_id order by r.id desc`,
+    )
+    .all() as Record<string, unknown>[]
+  const reactionRuns = db
+    .prepare('select * from reaction_collection_runs order by id desc limit 12')
+    .all() as Record<string, unknown>[]
   const deployments = db
     .prepare(
       `select d.*, c.concept from deployments d
@@ -395,6 +404,33 @@ ${
     : ''
 }
 ${learnings.length === 0 ? '<p class="note">構造化された学びはまだありません(経緯はリポジトリのjournalへ)。</p>' : ''}
+
+<h2>広告への返信・引用</h2>
+${
+  reactions.length
+    ? reactions.slice(0, 12).map((r) => {
+        const signals = JSON.parse(String(r.signals ?? '{}')) as Record<string, boolean>
+        const signalLabels: [string, string][] = [
+          ['message_confusion', '意味が伝わらない'],
+          ['ai_trust_concern', 'AI・信頼性'],
+          ['value_objection', '価値への反論'],
+          ['question_or_interest', '質問・関心'],
+          ['positive', '肯定'],
+          ['spam_or_irrelevant', '無関係'],
+        ]
+        const labels = signalLabels.filter(([key]) => signals[key]).map(([, label]) => label).join(' / ')
+        return `<div class="card"><h3>creative #${r.creative_id} · ${esc(r.reaction_type)} · ${esc(r.sentiment)}</h3>
+<p>「${esc(r.text)}」</p>
+<p class="meta">${esc(labels || '分類なし')} — ${esc(r.analysis)}</p>
+<p><a href="${esc(r.reaction_url)}" target="_blank" rel="noopener">Xの公開投稿を見る</a></p></div>`
+      }).join('\n')
+    : '<p class="note">保存された広告返信・引用はまだありません。</p>'
+}
+${
+  reactionRuns.length
+    ? `<p class="note">直近の収集状態: ${reactionRuns.slice(0, 5).map((r) => `deployment #${r.deployment_id} ${esc(r.checked_date)} ${esc(r.status)}${r.status === 'success' ? ` (${r.observed_count ?? 0}件)` : ' (未確認)'}`).join(' / ')}</p>`
+    : '<p class="note">返信収集はまだ実行されていません。0件確認と未確認は区別して表示します。</p>'
+}
 
 <h2>作業ジャーナル</h2>
 <p class="note">人間とAIの両方が同じジャーナルに記録しています(自動ジョブの実行痕跡も含む)。日付をクリックするとその日の記録を表示します。原本は<a href="https://github.com/artifactshare/autonomous-ads-lab/tree/main/journal" target="_blank" rel="noopener">リポジトリ</a>に。</p>

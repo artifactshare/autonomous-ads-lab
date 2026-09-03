@@ -20,7 +20,9 @@ Artifact Share に **実際に着地し、登録し、最初の共有に至る�
    sqlite3 data/experience.db "select * from conversions order by date"
    sqlite3 data/experience.db "select id, role, concept, hook from creatives"
    sqlite3 data/experience.db "select id, hypothesis, status from experiments"
-   sqlite3 data/experience.db "select insight, confidence from learnings"
+   sqlite3 data/experience.db "select observation, lesson, confidence from learnings"
+   sqlite3 data/experience.db "select creative_id, reaction_type, text, sentiment, signals, analysis, reaction_url from ad_reactions order by id desc limit 20"
+   sqlite3 data/experience.db "select deployment_id, checked_date, status, observed_count, error from reaction_collection_runs order by id desc limit 20"
    ```
    `logs/*.jsonl` は自動実行では残らない。当てにしない
 2. **前提を1つずつ判定する**: `docs/strategy.md` の各 Premise について「今週のデータで状態は変わったか」を書く。変わらないなら変えない。数字を必ず引用する。「もっとデータが必要」で済ませるときは、何件あれば判定できるかを書く

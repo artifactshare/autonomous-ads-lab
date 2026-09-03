@@ -1,5 +1,6 @@
 .env
 .env.*
+.DS_Store
 node_modules/
 data/*.db-wal
 data/*.db-shm
