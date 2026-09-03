@@ -17,6 +17,7 @@ export type LlmRole =
   | 'analysis' // metrics math, prediction-vs-actual, allocation -> opus
   | 'evaluation' // per-creative rubric scoring (frequent) -> sonnet
   | 'video_evaluation' // temporal/audio inspection of the complete ad -> Gemini
+  | 'research' // X/web observation through xAI server-side search -> Grok
   | 'copywriting' // ad copy, hooks, CTA variants -> sonnet
   | 'narrative' // journal/report prose -> sonnet
 
@@ -25,6 +26,7 @@ export const MODEL_FOR_ROLE: Record<LlmRole, string> = {
   analysis: 'claude-opus-5',
   evaluation: 'claude-sonnet-5',
   video_evaluation: 'gemini-3.8-flash',
+  research: 'grok-4.3',
   copywriting: 'claude-sonnet-5',
   narrative: 'claude-sonnet-5',
 }

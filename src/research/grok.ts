@@ -1,8 +1,8 @@
 // xAI Grok client via the Responses API with agentic server-side tools
 // (x_search / web_search). The legacy Live Search API was retired 2025-12.
+import { modelFor } from '../llm/policy.ts'
 
 const BASE = 'https://api.x.ai/v1/responses'
-const MODEL = 'grok-4.3' // cheap tier: $1.25/M in, $2.50/M out
 const PRICE_IN = 1.25 / 1e6
 const PRICE_OUT = 2.5 / 1e6
 const PRICE_TOOL_CALL = 0.005 // $5 / 1k web_search or x_search calls
@@ -41,10 +41,11 @@ export async function grokQuery(prompt: string, opts: GrokSearchOptions = {}): P
   }
   if (opts.webSearch) tools.push({ type: 'web_search' })
 
+  const model = modelFor('research').model
   const res = await fetch(BASE, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({ model: MODEL, input: [{ role: 'user', content: prompt }], tools }),
+    body: JSON.stringify({ model, input: [{ role: 'user', content: prompt }], tools }),
   })
   if (!res.ok) throw new Error(`xai responses -> ${res.status}: ${await res.text()}`)
   const body = (await res.json()) as {

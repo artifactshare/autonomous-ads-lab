@@ -130,13 +130,46 @@ create table if not exists learnings (
 create table if not exists research_observations (
   id integer primary key,
   created_at text not null default (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-  kind text not null,          -- 'mentions' | 'pain_points' | 'ad_trends' | 'techniques'
+  kind text not null,          -- 'mentions' | 'ad_reactions' | 'pain_points' | 'ad_trends' | 'techniques'
   query text not null,
   source text not null,        -- 'grok' | 'web'
   summary text not null,
   raw text,                    -- JSON: citations, source posts
   cost_usd real not null default 0,
   run_id text not null
+);
+
+-- Public replies and quote posts tied back to the ad that prompted them.
+-- This stores only the public post itself; it is not a user-profile table.
+create table if not exists ad_reactions (
+  id integer primary key,
+  first_seen_at text not null default (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  observed_at text not null,
+  deployment_id integer not null references deployments(id),
+  creative_id integer not null references creatives(id),
+  parent_post_url text not null,
+  reaction_url text not null unique,
+  reaction_type text not null, -- reply | quote
+  author_handle text,
+  text text not null,
+  sentiment text not null, -- positive | negative | neutral | mixed
+  signals text not null, -- JSON booleans; see src/research/reactions.ts
+  analysis text not null,
+  source text not null -- grok | reported
+);
+
+-- A zero-result successful check is different from a failed/unverified check.
+create table if not exists reaction_collection_runs (
+  id integer primary key,
+  collected_at text not null default (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  checked_date text not null,
+  deployment_id integer not null references deployments(id),
+  run_id text not null,
+  status text not null, -- success | failed | unverified
+  observed_count integer,
+  new_count integer,
+  error text,
+  unique(deployment_id, checked_date)
 );
 
 -- Technique Library: normalized, evidence-gated knowledge.
@@ -214,6 +247,8 @@ create index if not exists idx_evaluations_creative on evaluations(creative_id);
 create index if not exists idx_video_evaluations_creative on video_evaluations(creative_id);
 create index if not exists idx_performance_creative on performance(creative_id);
 create index if not exists idx_ledger_created on budget_ledger(created_at);
+create index if not exists idx_ad_reactions_creative on ad_reactions(creative_id);
+create index if not exists idx_reaction_runs_deployment on reaction_collection_runs(deployment_id, checked_date);
 
 -- GA4 conversions per campaign per day (synced from the Data API by daily ops).
 -- campaign is the utm_campaign value (e.g. exp001, exp-auto-{creative_id}).
