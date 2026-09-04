@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { Logger } from '../src/logging/logger.ts'
-import { checkStalledPrs, describeStalled, selectStalled } from '../src/ops/stalled-prs.ts'
+import {
+  checkStalledPrs,
+  describeStalled,
+  recoverStalledPrs,
+  retryWorkflowFor,
+  selectRecoverable,
+  selectStalled,
+} from '../src/ops/stalled-prs.ts'
 import type { PrSummary } from '../src/ops/stalled-prs.ts'
 
 const NOW = new Date('2026-08-31T12:00:00Z')
@@ -54,6 +61,49 @@ describe('describeStalled', () => {
     expect(describeStalled(pr(), NOW)).toBe(
       'PR #1 (DIRTY, 12h): Daily Ops: experience db + journal update',
     )
+  })
+})
+
+describe('DIRTY PR recovery', () => {
+  it('maps only rerunnable local ops branches to workflows', () => {
+    expect(retryWorkflowFor(pr({ headRefName: 'auto/Daily-Ops-20260831-000000' }))).toBe('daily.yml')
+    expect(retryWorkflowFor(pr({ headRefName: 'auto/Weekly-Learning-20260831-000000' }))).toBe('weekly.yml')
+    expect(retryWorkflowFor(pr({ headRefName: 'auto/metrics-20260831-000000' }))).toBeNull()
+    expect(retryWorkflowFor(pr({ headRefName: 'fix/human-change' }))).toBeNull()
+  })
+
+  it('recovers only old DIRTY PRs with a known idempotent workflow', () => {
+    const prs = [
+      pr({ number: 1, headRefName: 'auto/Daily-Ops-old', mergeStateStatus: 'DIRTY' }),
+      pr({ number: 2, headRefName: 'auto/Weekly-Learning-old', mergeStateStatus: 'DIRTY' }),
+      pr({ number: 3, headRefName: 'auto/Daily-Ops-blocked', mergeStateStatus: 'BLOCKED' }),
+      pr({ number: 4, headRefName: 'auto/metrics-old', mergeStateStatus: 'DIRTY' }),
+      pr({ number: 5, headRefName: 'fix/human-change', mergeStateStatus: 'DIRTY' }),
+    ]
+    expect(selectRecoverable(prs, NOW).map((p) => p.number)).toEqual([1, 2])
+  })
+
+  it('records each successful recovery in the journal output', async () => {
+    const recovered: number[] = []
+    const lines = await recoverStalledPrs(
+      new Logger({ runId: 'r' }, undefined, () => {}),
+      NOW,
+      () => [pr({ number: 82, headRefName: 'auto/Daily-Ops-old' })],
+      (candidate) => { recovered.push(candidate.number) },
+    )
+    expect(recovered).toEqual([82])
+    expect(lines).toEqual(['watchdog: closed DIRTY PR #82 and dispatched daily.yml'])
+  })
+
+  it('keeps recovery failures observable without failing daily ops', async () => {
+    const logged: string[] = []
+    const log = new Logger({ runId: 'r' }, undefined, (line) => logged.push(line))
+    await expect(
+      recoverStalledPrs(log, NOW, () => [pr({ headRefName: 'auto/Daily-Ops-old' })], () => {
+        throw new Error('dispatch denied')
+      }),
+    ).resolves.toEqual([])
+    expect(logged.some((line) => line.includes('stalled_pr_recovery_failed'))).toBe(true)
   })
 })
 

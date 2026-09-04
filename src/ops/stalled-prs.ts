@@ -1,9 +1,8 @@
 // Auto-merge is the only path by which automated runs reach main. When it
 // stalls the PR just sits there: GitHub sends no notification, the run is
 // green, and the DB update + journal entry inside it are silently lost once
-// the branch rots into a conflict. This watchdog only *reports* stalled PRs —
-// deciding which side of a binary SQLite conflict to keep is not something it
-// can do mechanically, so it never closes or merges anything.
+// the branch rots into a conflict. Idempotent daily/weekly jobs can recover a
+// DIRTY PR safely by rerunning from current main; other states remain alerts.
 import { execFileSync } from 'node:child_process'
 import type { Logger } from '../logging/logger.ts'
 
@@ -30,6 +29,11 @@ const STALLED_STATES = new Set(['DIRTY', 'BLOCKED', 'UNKNOWN', 'BEHIND'])
 // following the same convention gets reported too; that is harmless, since
 // this watchdog only reports.
 const AUTOMATED_PREFIXES = ['auto/', 'fix/', 'improve/']
+
+const RETRY_WORKFLOWS = [
+  { prefix: 'auto/Daily-Ops-', workflow: 'daily.yml' },
+  { prefix: 'auto/Weekly-Learning-', workflow: 'weekly.yml' },
+] as const
 
 /**
  * A PR is only stalled once it has had time to settle: a PR opened seconds ago
@@ -62,6 +66,66 @@ function fetchOpenPrs(): PrSummary[] {
     { encoding: 'utf8' },
   )
   return JSON.parse(out) as PrSummary[]
+}
+
+export function retryWorkflowFor(pr: PrSummary): string | null {
+  return RETRY_WORKFLOWS.find(({ prefix }) => pr.headRefName.startsWith(prefix))?.workflow ?? null
+}
+
+export function selectRecoverable(
+  prs: PrSummary[],
+  now: Date = new Date(),
+  graceHours = 2,
+): PrSummary[] {
+  return selectStalled(prs, now, graceHours).filter(
+    (pr) => pr.mergeStateStatus === 'DIRTY' && retryWorkflowFor(pr) !== null,
+  )
+}
+
+function recoverOne(pr: PrSummary): void {
+  const workflow = retryWorkflowFor(pr)
+  if (!workflow) throw new Error(`no retry workflow for ${pr.headRefName}`)
+
+  // Dispatch first. If closing fails, an idempotent retry is preferable to
+  // closing the only copy and then failing to schedule its replacement.
+  execFileSync('gh', ['workflow', 'run', workflow], { stdio: 'pipe' })
+  execFileSync('gh', ['pr', 'close', String(pr.number), '--delete-branch'], { stdio: 'pipe' })
+}
+
+/**
+ * Replace DIRTY daily/weekly PRs with a fresh run from current main.
+ * Never throws: failures remain visible to checkStalledPrs and Slack.
+ */
+export async function recoverStalledPrs(
+  log: Logger,
+  now: Date = new Date(),
+  fetch_ = fetchOpenPrs,
+  recover_: (pr: PrSummary) => void | Promise<void> = recoverOne,
+): Promise<string[]> {
+  let recoverable: PrSummary[]
+  try {
+    recoverable = selectRecoverable(fetch_(), now)
+  } catch (err) {
+    log.warn('stalled_pr_recovery_check_failed', { error: String(err).slice(0, 200) })
+    return []
+  }
+
+  const notes: string[] = []
+  for (const pr of recoverable) {
+    const workflow = retryWorkflowFor(pr)!
+    try {
+      await recover_(pr)
+      log.warn('stalled_pr_recovered', { number: pr.number, workflow })
+      notes.push(`watchdog: closed DIRTY PR #${pr.number} and dispatched ${workflow}`)
+    } catch (err) {
+      log.warn('stalled_pr_recovery_failed', {
+        number: pr.number,
+        workflow,
+        error: String(err).slice(0, 200),
+      })
+    }
+  }
+  return notes
 }
 
 /**
