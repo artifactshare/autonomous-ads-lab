@@ -124,7 +124,8 @@ if (process.env.FAL_KEY && process.env.CLAUDE_CODE_OAUTH_TOKEN && process.env.GE
 // Watchdog: auto-merge is how every automated run reaches main. If it stalls,
 // the run's DB update and journal entry never land and nothing says so.
 if (process.env.GH_TOKEN) {
-  const { checkStalledPrs } = await import('./stalled-prs.ts')
+  const { checkStalledPrs, recoverStalledPrs } = await import('./stalled-prs.ts')
+  done.push(...(await recoverStalledPrs(log)))
   done.push(...(await checkStalledPrs(log)))
 } else {
   log.warn('stalled_pr_check_skipped', { reason: 'GH_TOKEN not set' })
