@@ -1,5 +1,7 @@
 import { execFileSync } from 'node:child_process'
-import { existsSync } from 'node:fs'
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 
 export interface OverlayText {
   /** Shown during the opening (hook line). */
@@ -32,28 +34,46 @@ export function assertOverlayToolchain(
   return f
 }
 
-const esc = (s: string) => s.replace(/\\/g, '\\\\').replace(/'/g, "\\\\'").replace(/:/g, '\\:')
+const escPath = (s: string) => s.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/:/g, '\\:')
+
+export function overlayFilters(
+  font: string,
+  files: { hook: string; brand: string; cta: string },
+  durationSec: number,
+): string {
+  const common = `fontfile='${escPath(font)}':fontcolor=white:borderw=3:bordercolor=black@0.85`
+  const hookEnd = durationSec * 0.4
+  const endStart = Math.max(hookEnd, durationSec - 1.6)
+  return [
+    `drawtext=${common}:fontsize=h/14:textfile='${escPath(files.hook)}':x=(w-text_w)/2:y=h/8:enable='lt(t,${hookEnd})'`,
+    `drawbox=x=0:y=0:w=iw:h=ih:color=black@0.55:t=fill:enable='gte(t,${endStart})'`,
+    `drawtext=${common}:fontsize=h/10:textfile='${escPath(files.brand)}':x=(w-text_w)/2:y=(h-text_h)/2-h/12:enable='gte(t,${endStart})'`,
+    `drawtext=${common}:fontsize=h/16:textfile='${escPath(files.cta)}':x=(w-text_w)/2:y=(h-text_h)/2+h/16:enable='gte(t,${endStart})'`,
+  ].join(',')
+}
 
 /** Burn hook text + end card onto a video. Returns the output path. */
 export function applyOverlay(inputPath: string, outputPath: string, text: OverlayText, durationSec = 5): string {
   const font = assertOverlayToolchain()
-  const common = `fontfile=${font}:fontcolor=white:borderw=3:bordercolor=black@0.85`
-  const hookEnd = durationSec * 0.4
-  const endStart = Math.max(hookEnd, durationSec - 1.6)
-  const filters = [
-    // Hook: top area, first 40% of the video.
-    `drawtext=${common}:fontsize=h/14:text='${esc(text.hook)}':x=(w-text_w)/2:y=h/8:enable='lt(t,${hookEnd})'`,
-    // End card: darken + brand + CTA for the final 1.6s.
-    `drawbox=x=0:y=0:w=iw:h=ih:color=black@0.55:t=fill:enable='gte(t,${endStart})'`,
-    `drawtext=${common}:fontsize=h/10:text='${esc(text.brand)}':x=(w-text_w)/2:y=(h-text_h)/2-h/12:enable='gte(t,${endStart})'`,
-    `drawtext=${common}:fontsize=h/16:text='${esc(text.cta)}':x=(w-text_w)/2:y=(h-text_h)/2+h/16:enable='gte(t,${endStart})'`,
-  ].join(',')
-  execFileSync('ffmpeg', [
-    '-hide_banner', '-loglevel', 'error', '-y',
-    '-i', inputPath,
-    '-vf', filters,
-    '-c:a', 'copy',
-    outputPath,
-  ])
+  const dir = mkdtempSync(join(tmpdir(), 'ads-overlay-'))
+  const files = {
+    hook: join(dir, 'hook.txt'),
+    brand: join(dir, 'brand.txt'),
+    cta: join(dir, 'cta.txt'),
+  }
+  try {
+    writeFileSync(files.hook, text.hook, 'utf8')
+    writeFileSync(files.brand, text.brand, 'utf8')
+    writeFileSync(files.cta, text.cta, 'utf8')
+    execFileSync('ffmpeg', [
+      '-hide_banner', '-loglevel', 'error', '-y',
+      '-i', inputPath,
+      '-vf', overlayFilters(font, files, durationSec),
+      '-c:a', 'copy',
+      outputPath,
+    ])
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
   return outputPath
 }
