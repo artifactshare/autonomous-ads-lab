@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { formatGa4Outcomes } from '../src/ops/decide.ts'
+import { CreativeRepo } from '../src/creative/repo.ts'
+import { openDb } from '../src/db/index.ts'
+import { findResumableCreatives, formatGa4Outcomes } from '../src/ops/decide.ts'
 
 describe('formatGa4Outcomes', () => {
   it('reports an unmeasured landing rate when no conversions rows are synced', () => {
@@ -18,5 +20,38 @@ describe('formatGa4Outcomes', () => {
     expect(s).toContain('41% of clicks landed')
     expect(s).toContain('$0.29/session')
     expect(s).toContain('1 sign_ups')
+  })
+})
+
+describe('findResumableCreatives', () => {
+  it('returns generated eligible challengers that have not been evaluated', () => {
+    const db = openDb(':memory:')
+    const repo = new CreativeRepo(db)
+    const experimentId = repo.createExperiment({
+      domain: 'test', objective: 'test', hypothesis: 'test', budgetAllocatedUsd: 1,
+    })
+    const make = (deploymentEligible = true) => repo.createCreative({
+      experimentId,
+      role: 'challenger',
+      concept: 'concept',
+      hook: 'hook',
+      message: 'message',
+      cta: 'cta',
+      prompt: 'prompt',
+      deploymentEligible,
+    })
+    const deployed = make()
+    const resumable = make()
+    const evaluated = make()
+    const unfinished = make()
+    const ineligible = make(false)
+    for (const id of [resumable, evaluated, ineligible]) {
+      db.prepare('update creatives set asset_url = ? where id = ?').run(`https://example.test/${id}.mp4`, id)
+    }
+    db.prepare('insert into evaluations (creative_id) values (?)').run(evaluated)
+
+    expect(findResumableCreatives(db, deployed)).toEqual([{ id: resumable, hook: 'hook', cta: 'cta' }])
+    expect(findResumableCreatives(db, unfinished)).toEqual([])
+    db.close()
   })
 })

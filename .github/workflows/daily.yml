@@ -25,6 +25,10 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
+      - name: Install video toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg fonts-dejavu-core
       - run: pnpm install --frozen-lockfile
       - run: pnpm tsx src/ops/daily.ts
         env:

@@ -17,7 +17,7 @@ import type { Logger } from '../logging/logger.ts'
 import { modelFor } from '../llm/policy.ts'
 import { loadKnowledge } from '../llm/knowledge.ts'
 import { CreativeRepo } from '../creative/repo.ts'
-import { produceCreative } from '../creative/pipeline.ts'
+import { produceCreative, resumeCreativeEvaluation } from '../creative/pipeline.ts'
 
 const MIN_DAYS_EARLY = 3
 const MIN_DAYS_FULL = 7
@@ -41,6 +41,26 @@ export async function decideAndAct(db: Database.Database, log: Logger): Promise<
     )
     .get() as { creative_id: number; started_at: string | null } | undefined
   if (!dep) return ['decide: no active deployment; nothing to optimize']
+
+  const resumable = findResumableCreatives(db, dep.creative_id)
+  if (resumable.length > 0) {
+    const notes = [`decide: resuming ${resumable.length} generated but unevaluated challenger(s); no new generation`]
+    for (const creative of resumable) {
+      try {
+        const result = await resumeCreativeEvaluation(db, log, creative.id, VIDEO.durationSec, {
+          hook: creative.hook,
+          brand: BRAND,
+          cta: creative.cta,
+        })
+        notes.push(`evaluated existing creative ${result.creativeId} -> ${result.overall}/10${result.disqualified ? ' (disqualified)' : ''}`)
+      } catch (err) {
+        log.error('challenger_resume_failed', { creativeId: creative.id, error: String(err) })
+        notes.push(`existing creative ${creative.id} evaluation failed: ${String(err).slice(0, 200)}`)
+      }
+    }
+    notes.push(...pendingWinnerNotes(db, dep.creative_id))
+    return notes
+  }
 
   const pending = db
     .prepare(
@@ -104,7 +124,6 @@ export async function decideAndAct(db: Database.Database, log: Logger): Promise<
   })
   notes.push(`hypothesis (experiment ${experimentId}): ${proposal.hypothesis}`)
 
-  const results: { creativeId: number; overall: number; disqualified: boolean; hook: string; videoPath: string }[] = []
   for (const c of proposal.creatives.slice(0, CHALLENGERS)) {
     try {
       const r = await produceCreative(
@@ -114,7 +133,6 @@ export async function decideAndAct(db: Database.Database, log: Logger): Promise<
         VIDEO,
         { hook: c.hook, brand: BRAND, cta: c.cta },
       )
-      results.push({ ...r, hook: c.hook })
       notes.push(`generated creative ${r.creativeId} "${c.concept}" -> ${r.overall}/10${r.disqualified ? ' (disqualified)' : ''}`)
     } catch (err) {
       // Budget denial or generation failure: record and keep going with what we have.
@@ -124,16 +142,39 @@ export async function decideAndAct(db: Database.Database, log: Logger): Promise<
     }
   }
 
-  const winner = results.filter((r) => !r.disqualified).sort((a, b) => b.overall - a.overall)[0]
-  if (!winner) {
-    notes.push('no qualified challenger this round; keeping current creative')
-    return notes
-  }
-
-  notes.push(
-    `winner: creative ${winner.creativeId} (${winner.overall}/10) — awaiting bridge auto-deploy (next 06:30 JST run)`,
-  )
+  notes.push(...pendingWinnerNotes(db, dep.creative_id))
   return notes
+}
+
+export interface ResumableCreative {
+  id: number
+  hook: string
+  cta: string
+}
+
+export function findResumableCreatives(db: Database.Database, deployedId: number): ResumableCreative[] {
+  return db
+    .prepare(
+      `select c.id, c.hook, c.cta from creatives c
+       where c.id > ? and c.asset_url is not null and c.deployment_eligible = 1
+         and not exists (select 1 from evaluations e where e.creative_id = c.id)
+       order by c.id`,
+    )
+    .all(deployedId) as ResumableCreative[]
+}
+
+function pendingWinnerNotes(db: Database.Database, deployedId: number): string[] {
+  const winner = db
+    .prepare(
+      `select c.id as creativeId, e.overall_score as overall from creatives c
+       join evaluations e on e.creative_id = c.id
+       where c.id > ? and e.disqualified = 0 and c.deployment_eligible = 1
+         and c.id not in (select creative_id from deployments)
+       order by e.overall_score desc, c.id asc limit 1`,
+    )
+    .get(deployedId) as { creativeId: number; overall: number } | undefined
+  if (!winner) return ['no qualified challenger this round; keeping current creative']
+  return [`winner: creative ${winner.creativeId} (${winner.overall}/10) — awaiting bridge auto-deploy (next 06:30 JST run)`]
 }
 
 // A conversions table with no synced rows means the GA4 sync has not delivered

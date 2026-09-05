@@ -9,7 +9,11 @@ import { extractFrames } from '../evaluation/frames.ts'
 import { Evaluator } from '../evaluation/evaluator.ts'
 import { GeminiVideoEvaluator, type VideoEvaluationScores } from '../evaluation/gemini-video.ts'
 import { CreativeRepo, type NewCreative } from './repo.ts'
-import { applyOverlay, type OverlayText } from './overlay.ts'
+import { applyOverlay, assertOverlayToolchain, type OverlayText } from './overlay.ts'
+
+interface CreativeForEvaluation extends NewCreative {
+  assetUrl: string
+}
 
 /**
  * Generate + evaluate one creative, end to end, with budget authorization,
@@ -22,14 +26,15 @@ export async function produceCreative(
   video: Omit<VideoSpec, 'prompt' | 'seed'>,
   overlay?: OverlayText,
   gen: H3Generator = new H3MaxTurboGenerator(),
+  preflight: () => unknown = assertOverlayToolchain,
 ): Promise<{ creativeId: number; disqualified: boolean; overall: number; videoPath: string }> {
   assertArtifactShareDomain(creative, overlay)
+  preflight()
   const repo = new CreativeRepo(db)
   const budget = new BudgetController(db)
-  const evaluator = new Evaluator()
   // Instantiate before the paid video generation so a missing Gemini key
   // cannot leave us with a generated candidate that is ineligible to deploy.
-  const videoEvaluator = new GeminiVideoEvaluator()
+  new GeminiVideoEvaluator()
 
   const creativeId = repo.createCreative(creative)
   const clog = log.child({ creativeId, experimentId: creative.experimentId })
@@ -57,14 +62,84 @@ export async function produceCreative(
   repo.recordGeneration(creativeId, result)
   clog.info('generation_complete', { assetUrl: result.assetUrl, latencyMs: result.latencyMs })
 
+  return evaluateCreativeAsset(db, log, creativeId, { ...creative, assetUrl: result.assetUrl }, video.durationSec, overlay)
+}
+
+/** Resume post-processing/evaluation for a paid generation already in the DB. */
+export async function resumeCreativeEvaluation(
+  db: Database.Database,
+  log: Logger,
+  creativeId: number,
+  durationSec: number,
+  overlay?: OverlayText,
+  preflight: () => unknown = assertOverlayToolchain,
+): Promise<{ creativeId: number; disqualified: boolean; overall: number; videoPath: string }> {
+  preflight()
+  const row = db
+    .prepare(
+      `select experiment_id, parent_creative_id, role, concept, hook, message, cta,
+              prompt, seed, asset_url
+       from creatives where id = ? and asset_url is not null`,
+    )
+    .get(creativeId) as {
+      experiment_id: number
+      parent_creative_id: number | null
+      role: NewCreative['role']
+      concept: string
+      hook: string
+      message: string
+      cta: string
+      prompt: string
+      seed: number | null
+      asset_url: string
+    } | undefined
+  if (!row) throw new Error(`creative ${creativeId} has no generated asset to resume`)
+  const evaluated = db.prepare('select 1 from evaluations where creative_id = ?').get(creativeId)
+  if (evaluated) throw new Error(`creative ${creativeId} is already evaluated`)
+
+  return evaluateCreativeAsset(
+    db,
+    log,
+    creativeId,
+    {
+      experimentId: row.experiment_id,
+      parentCreativeId: row.parent_creative_id ?? undefined,
+      role: row.role,
+      concept: row.concept,
+      hook: row.hook,
+      message: row.message,
+      cta: row.cta,
+      prompt: row.prompt,
+      seed: row.seed ?? undefined,
+      assetUrl: row.asset_url,
+    },
+    durationSec,
+    overlay,
+  )
+}
+
+async function evaluateCreativeAsset(
+  db: Database.Database,
+  log: Logger,
+  creativeId: number,
+  creative: CreativeForEvaluation,
+  durationSec: number,
+  overlay?: OverlayText,
+): Promise<{ creativeId: number; disqualified: boolean; overall: number; videoPath: string }> {
+  const repo = new CreativeRepo(db)
+  const budget = new BudgetController(db)
+  const evaluator = new Evaluator()
+  const videoEvaluator = new GeminiVideoEvaluator()
+  const clog = log.child({ creativeId, experimentId: creative.experimentId })
+
   // Evaluate from evenly spaced frames.
   const workDir = `data/creatives/${creativeId}`
   mkdirSync(workDir, { recursive: true })
   const rawPath = `${workDir}/raw.mp4`
-  execFileSync('curl', ['-sfL', '-o', rawPath, result.assetUrl])
+  execFileSync('curl', ['-sfL', '-o', rawPath, creative.assetUrl])
   // Readable copy (brand/CTA) is burned in post; the evaluation must see the
   // final ad, not the raw generation.
-  const videoPath = overlay ? applyOverlay(rawPath, `${workDir}/final.mp4`, overlay, spec.durationSec) : rawPath
+  const videoPath = overlay ? applyOverlay(rawPath, `${workDir}/final.mp4`, overlay, durationSec) : rawPath
   const frames = extractFrames(videoPath, `${workDir}/frames`)
   const frameScores = await evaluator.evaluate(frames, creative)
 
