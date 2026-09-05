@@ -17,9 +17,18 @@ const FONT_CANDIDATES = [
   '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf', // ubuntu (GH Actions)
 ]
 
-function fontFile(): string {
-  const f = FONT_CANDIDATES.find((p) => existsSync(p))
+export function assertOverlayToolchain(
+  run: (command: string, args: string[]) => unknown = (command, args) =>
+    execFileSync(command, args, { stdio: 'ignore' }),
+  exists: (path: string) => boolean = existsSync,
+): string {
+  const f = FONT_CANDIDATES.find((p) => exists(p))
   if (!f) throw new Error('no usable font found for drawtext')
+  try {
+    run('ffmpeg', ['-version'])
+  } catch (err) {
+    throw new Error(`ffmpeg is required before paid creative generation: ${String(err)}`)
+  }
   return f
 }
 
@@ -27,7 +36,7 @@ const esc = (s: string) => s.replace(/\\/g, '\\\\').replace(/'/g, "\\\\'").repla
 
 /** Burn hook text + end card onto a video. Returns the output path. */
 export function applyOverlay(inputPath: string, outputPath: string, text: OverlayText, durationSec = 5): string {
-  const font = fontFile()
+  const font = assertOverlayToolchain()
   const common = `fontfile=${font}:fontcolor=white:borderw=3:bordercolor=black@0.85`
   const hookEnd = durationSec * 0.4
   const endStart = Math.max(hookEnd, durationSec - 1.6)
