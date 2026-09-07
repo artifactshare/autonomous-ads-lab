@@ -13,6 +13,8 @@ export interface PrSummary {
   createdAt: string
   headRefName: string
   mergeStateStatus: string
+  /** Optional so older call sites and fixtures stay valid; absent = not a bot. */
+  author?: { login?: string; is_bot?: boolean }
 }
 
 /**
@@ -29,6 +31,20 @@ const STALLED_STATES = new Set(['DIRTY', 'BLOCKED', 'UNKNOWN', 'BEHIND'])
 // following the same convention gets reported too; that is harmless, since
 // this watchdog only reports.
 const AUTOMATED_PREFIXES = ['auto/', 'fix/', 'improve/']
+
+// Branch names are chosen by the agents themselves, so a prefix allowlist only
+// catches the ones that followed their prompt: the strategist was told to use
+// `improve/` and opened PR #106 from `strategist/`, invisible to this watchdog.
+// Authorship is not the agent's to pick — every automated PR is opened through
+// GITHUB_TOKEN and lands as github-actions[bot] — so it is the reliable signal.
+// Kept as a union with the prefixes so a human `fix/` branch still reports.
+const BOT_AUTHORS = new Set(['github-actions[bot]', 'app/github-actions', 'ads-lab-bot'])
+
+function isAutomated(pr: PrSummary): boolean {
+  const login = pr.author?.login
+  if (pr.author?.is_bot || (login !== undefined && BOT_AUTHORS.has(login))) return true
+  return AUTOMATED_PREFIXES.some((p) => pr.headRefName.startsWith(p))
+}
 
 const RETRY_WORKFLOWS = [
   { prefix: 'auto/Daily-Ops-', workflow: 'daily.yml' },
@@ -47,7 +63,7 @@ export function selectStalled(
   const cutoff = now.getTime() - graceHours * 3600_000
   return prs.filter(
     (pr) =>
-      AUTOMATED_PREFIXES.some((p) => pr.headRefName.startsWith(p)) &&
+      isAutomated(pr) &&
       STALLED_STATES.has(pr.mergeStateStatus) &&
       Date.parse(pr.createdAt) < cutoff,
   )
@@ -62,7 +78,7 @@ function fetchOpenPrs(): PrSummary[] {
   const out = execFileSync(
     'gh',
     ['pr', 'list', '--state', 'open', '--limit', '50', '--json',
-     'number,title,createdAt,headRefName,mergeStateStatus'],
+     'number,title,createdAt,headRefName,mergeStateStatus,author'],
     { encoding: 'utf8' },
   )
   return JSON.parse(out) as PrSummary[]

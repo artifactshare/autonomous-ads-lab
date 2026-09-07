@@ -54,6 +54,25 @@ describe('selectStalled', () => {
     ]
     expect(numbers(prs)).toEqual([1, 2, 3])
   })
+
+  // Regression: PR #106 sat BLOCKED and unreported because the strategist
+  // opened it from `strategist/` while its prompt prescribes `improve/`.
+  it('watches bot-authored PRs on branches outside the prefix allowlist', () => {
+    const prs = [
+      pr({
+        number: 106,
+        headRefName: 'strategist/2026-09-07-weekly-review',
+        mergeStateStatus: 'BLOCKED',
+        author: { login: 'app/github-actions', is_bot: true },
+      }),
+      pr({ number: 2, headRefName: 'feat/ad-reaction-analysis', author: { login: 'github-actions[bot]' } }),
+    ]
+    expect(numbers(prs)).toEqual([106, 2])
+  })
+
+  it('still ignores a human PR on a branch the agents do not use', () => {
+    expect(numbers([pr({ headRefName: 'coji-experiment', author: { login: 'coji', is_bot: false } })])).toEqual([])
+  })
 })
 
 describe('describeStalled', () => {
