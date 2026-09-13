@@ -1,0 +1,14 @@
+{"t":"2026-09-13T23:18:37.995Z","s":"delete from performance where creative_id = ? and substr(observed_at, 1, 10) = ?","p":[3,"2026-09-07"]}
+{"t":"2026-09-13T23:18:37.995Z","s":"insert into performance (creative_id, observed_at, spend_usd, impressions, clicks) values (?, ?, ?, ?, ?)","p":[3,"2026-09-07T23:59:59Z",1.4665,1574,18]}
+{"t":"2026-09-13T23:18:37.995Z","s":"delete from performance where creative_id = ? and substr(observed_at, 1, 10) = ?","p":[3,"2026-09-08"]}
+{"t":"2026-09-13T23:18:37.996Z","s":"insert into performance (creative_id, observed_at, spend_usd, impressions, clicks) values (?, ?, ?, ?, ?)","p":[3,"2026-09-08T23:59:59Z",1.4395,1438,17]}
+{"t":"2026-09-13T23:18:37.996Z","s":"delete from performance where creative_id = ? and substr(observed_at, 1, 10) = ?","p":[3,"2026-09-09"]}
+{"t":"2026-09-13T23:18:37.996Z","s":"insert into performance (creative_id, observed_at, spend_usd, impressions, clicks) values (?, ?, ?, ?, ?)","p":[3,"2026-09-09T23:59:59Z",1.462,1219,16]}
+{"t":"2026-09-13T23:18:37.996Z","s":"delete from performance where creative_id = ? and substr(observed_at, 1, 10) = ?","p":[3,"2026-09-10"]}
+{"t":"2026-09-13T23:18:37.996Z","s":"insert into performance (creative_id, observed_at, spend_usd, impressions, clicks) values (?, ?, ?, ?, ?)","p":[3,"2026-09-10T23:59:59Z",1.4651,1377,21]}
+{"t":"2026-09-13T23:18:37.996Z","s":"delete from performance where creative_id = ? and substr(observed_at, 1, 10) = ?","p":[3,"2026-09-11"]}
+{"t":"2026-09-13T23:18:37.996Z","s":"insert into performance (creative_id, observed_at, spend_usd, impressions, clicks) values (?, ?, ?, ?, ?)","p":[3,"2026-09-11T23:59:59Z",1.4455,1610,15]}
+{"t":"2026-09-13T23:18:37.996Z","s":"delete from performance where creative_id = ? and substr(observed_at, 1, 10) = ?","p":[3,"2026-09-12"]}
+{"t":"2026-09-13T23:18:37.996Z","s":"insert into performance (creative_id, observed_at, spend_usd, impressions, clicks) values (?, ?, ?, ?, ?)","p":[3,"2026-09-12T23:59:59Z",1.466,1526,10]}
+{"t":"2026-09-13T23:18:37.996Z","s":"delete from performance where creative_id = ? and substr(observed_at, 1, 10) = ?","p":[3,"2026-09-13"]}
+{"t":"2026-09-13T23:18:37.996Z","s":"insert into performance (creative_id, observed_at, spend_usd, impressions, clicks) values (?, ?, ?, ?, ?)","p":[3,"2026-09-13T23:59:59Z",1.4511,1992,19]}
