@@ -21,6 +21,7 @@ import { modelFor } from '../llm/policy.ts'
 import { loadKnowledge } from '../llm/knowledge.ts'
 import { CreativeRepo } from '../creative/repo.ts'
 import { produceCreative, resumeCreativeEvaluation } from '../creative/pipeline.ts'
+import { produceFootageCreative } from '../creative/footage.ts'
 
 const MIN_DAYS_EARLY = 3
 const MIN_DAYS_FULL = 7
@@ -28,6 +29,9 @@ const EARLY_KILL_CTR = 0.0015 // 0.15%: clearly dead for a traffic objective
 const CHALLENGERS = 3
 const VIDEO = { aspectRatio: '16:9', durationSec: 8, resolution: '768P' } as const
 const BRAND = 'artifactshare.com'
+// 'footage' (default since 9/14): real loop recording + hook card via Remotion, $0 media.
+// 'generated': the original H3 Max path. See docs/strategy.md P6/P9 and prompts/knowledge/audience.md.
+const CREATIVE_MODE = process.env.CREATIVE_MODE === 'generated' ? 'generated' : 'footage'
 
 interface ProposedCreative {
   concept: string
@@ -123,19 +127,27 @@ export async function decideAndAct(db: Database.Database, log: Logger): Promise<
     hypothesis: proposal.hypothesis,
     // 8s H3 Max Turbo at post-promotion list price ($0.04/s). The hard
     // Budget Controller still authorizes each actual request separately.
-    budgetAllocatedUsd: CHALLENGERS * 0.32,
+    budgetAllocatedUsd: CREATIVE_MODE === 'footage' ? 0 : CHALLENGERS * 0.32,
   })
   notes.push(`hypothesis (experiment ${experimentId}): ${proposal.hypothesis}`)
 
   for (const c of proposal.creatives.slice(0, CHALLENGERS)) {
     try {
-      const r = await produceCreative(
-        db,
-        log,
-        { experimentId, parentCreativeId: dep.creative_id, role: 'challenger', ...c },
-        VIDEO,
-        { hook: c.hook, brand: BRAND, cta: c.cta },
-      )
+      const r =
+        CREATIVE_MODE === 'footage'
+          ? await produceFootageCreative(
+              db,
+              log,
+              { experimentId, parentCreativeId: dep.creative_id, role: 'challenger', ...c, prompt: `footage:loop-2026-09-14 hook="${c.hook}"` },
+              { hook: c.hook, endTitle: c.cta },
+            )
+          : await produceCreative(
+              db,
+              log,
+              { experimentId, parentCreativeId: dep.creative_id, role: 'challenger', ...c },
+              VIDEO,
+              { hook: c.hook, brand: BRAND, cta: c.cta },
+            )
       notes.push(`generated creative ${r.creativeId} "${c.concept}" -> ${r.overall}/10${r.disqualified ? ' (disqualified)' : ''}`)
     } catch (err) {
       // Budget denial or generation failure: record and keep going with what we have.
@@ -246,14 +258,26 @@ async function proposeChallengers(
     )
     .all()
 
+  const modeIntro =
+    CREATIVE_MODE === 'footage'
+      ? `The video is FIXED: a real 24s recording of the loop (a teammate clicks a title on a
+shared page and leaves a note; Claude Code reads it in a terminal, edits, republishes; the
+same URL shows the new title and the resolved thread). You do not design footage. You design
+the 2-second opening HOOK CARD (<=60 chars) and the end-card line (cta, <=45 chars). The
+hook must name a workaround the viewer is doing today (see the audience knowledge: Vercel
+deploy just to show a doc, ten versions in Slack, editing agent code by hand, Notion not
+fitting agent output) in their own words. The "prompt" field is unused in this mode; put
+the one-line rationale there.`
+      : `Videos are 8s MiniMax H3 generations; readable text is burned in later, so
+prompts must ask for NO readable on-screen text.`
   const prompt = `You design the next generation of short X video ads for Artifact Share
 (https://artifactshare.com): share one URL for an AI-generated artifact, get comments,
-let AI update it at the same URL. Audience: English-speaking developers using AI coding
-agents. Videos are 8s MiniMax H3 generations; readable text is burned in later, so
-prompts must ask for NO readable on-screen text.
+let AI update it at the same URL. Audience: CTOs and founding engineers of small AI-native
+teams who write design docs with coding agents and review them together (see audience).
+${modeIntro}
 
 ## Internalized knowledge (source-attributed)
-${loadKnowledge(['h3max-prompting', 'video-ads', 'marketing-strategy'])}
+${loadKnowledge(CREATIVE_MODE === 'footage' ? ['audience', 'video-ads', 'marketing-strategy'] : ['h3max-prompting', 'video-ads', 'marketing-strategy'])}
 
 ## Our own results so far
 Deployed creative ${deployedId} real performance: ${perfSummary}
@@ -278,9 +302,9 @@ State ONE testable hypothesis about what will lower cost per landed session vers
 deployed creative, then propose ${CHALLENGERS} challenger creatives that test it from
 different angles.
 Output ONLY JSON: {"premise_challenged": string, "hypothesis": string, "creatives": [{"concept","hook","message","cta","prompt"} x${CHALLENGERS}]}
-- hook: <=60 chars, burned onto the opening frames
-- cta: <=40 chars, end card
-- prompt: H3 Max video prompt following the knowledge above; no readable text in the video`
+- hook: <=60 chars, the opening card
+- cta: <=45 chars, end card line
+- prompt: ${CREATIVE_MODE === 'footage' ? 'one-line rationale for the hook (footage is fixed)' : 'H3 Max video prompt following the knowledge above; no readable text in the video'}`
 
   const q = query({ prompt, options: { ...modelFor('hypothesis', db), maxTurns: 3 } })
   let text = ''

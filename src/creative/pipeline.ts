@@ -118,6 +118,18 @@ export async function resumeCreativeEvaluation(
   )
 }
 
+/** Evaluate a video that already exists on disk (footage mode): no download, no overlay. */
+export async function evaluateLocalVideo(
+  db: Database.Database,
+  log: Logger,
+  creativeId: number,
+  creative: CreativeForEvaluation,
+  videoPath: string,
+  durationSec: number,
+): Promise<{ creativeId: number; disqualified: boolean; overall: number; videoPath: string }> {
+  return evaluateCreativeAsset(db, log, creativeId, creative, durationSec, undefined, videoPath)
+}
+
 async function evaluateCreativeAsset(
   db: Database.Database,
   log: Logger,
@@ -125,6 +137,7 @@ async function evaluateCreativeAsset(
   creative: CreativeForEvaluation,
   durationSec: number,
   overlay?: OverlayText,
+  localVideoPath?: string,
 ): Promise<{ creativeId: number; disqualified: boolean; overall: number; videoPath: string }> {
   const repo = new CreativeRepo(db)
   const budget = new BudgetController(db)
@@ -135,11 +148,16 @@ async function evaluateCreativeAsset(
   // Evaluate from evenly spaced frames.
   const workDir = `data/creatives/${creativeId}`
   mkdirSync(workDir, { recursive: true })
-  const rawPath = `${workDir}/raw.mp4`
-  execFileSync('curl', ['-sfL', '-o', rawPath, creative.assetUrl])
-  // Readable copy (brand/CTA) is burned in post; the evaluation must see the
-  // final ad, not the raw generation.
-  const videoPath = overlay ? applyOverlay(rawPath, `${workDir}/final.mp4`, overlay, durationSec) : rawPath
+  let videoPath: string
+  if (localVideoPath) {
+    videoPath = localVideoPath
+  } else {
+    const rawPath = `${workDir}/raw.mp4`
+    execFileSync('curl', ['-sfL', '-o', rawPath, creative.assetUrl])
+    // Readable copy (brand/CTA) is burned in post; the evaluation must see the
+    // final ad, not the raw generation.
+    videoPath = overlay ? applyOverlay(rawPath, `${workDir}/final.mp4`, overlay, durationSec) : rawPath
+  }
   const frames = extractFrames(videoPath, `${workDir}/frames`)
   const frameScores = await evaluator.evaluate(frames, creative)
 
