@@ -50,6 +50,7 @@ export async function addFollowerTargeting(db: Database.Database, handle: string
     line_item_id: lineItem(db),
     targeting_type: similar ? 'SIMILAR_TO_FOLLOWERS_OF_USER' : 'FOLLOWERS_OF_USER',
     targeting_value: userId,
+    operator_type: 'EQ',
   })
   return r.data
 }
