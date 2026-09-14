@@ -31,29 +31,30 @@ export type AdV2Props = {
   bed?: string
 }
 
-const UI = { bg: '#f6f7fb', ink: '#16181d', accent: '#2f6fed', pill: 'rgba(22,24,29,0.92)' }
+// Tokens from artifactshare.com (root-*.css): Geist, warm ink, muted paper, link blue, agent purple, 6px radius.
+const UI = { bg: '#ffffff', soft: '#f7f6f3', ink: '#37352f', muted: '#37352fdb', accent: '#1766ad', agent: '#6b5ce7', pill: 'rgba(55,53,47,0.92)', radius: 6 }
 const BROWSER = { srcW: 1920, srcH: 1080 }
 const TERM = { srcW: 2560, srcH: 700 }
 
 export const defaultAdV2Props: AdV2Props = {
-  hook: 'Your agent wrote the doc.\nWhere does your team review it?',
+  hook: 'Your agent wrote the spec.\nWho reviews it?',
   hookSeconds: 2.4,
   scenes: [
-    // 1. teammate selects the title and opens the composer (camera: page → title → composer)
-    { kind: 'beat', beat: { src: 'comment.mp4', ...BROWSER, from: 2.4, to: 7.4, focus: { x: 960, y: 520, scale: 1.3 }, focusEnd: { x: 900, y: 360, scale: 1.9 }, clicks: [{ at: 1.6, x: 829, y: 299 }, { at: 4.1, x: 905, y: 395 }], caption: 'Click the title. Leave a note.' } },
-    // 2. typing + post (camera on the composer)
-    { kind: 'beat', beat: { src: 'comment.mp4', ...BROWSER, from: 8.0, to: 13.2, focus: { x: 1200, y: 610, scale: 2.7 }, clicks: [{ at: 4.5, x: 1290, y: 690 }], caption: 'One line is enough.' } },
-    { kind: 'reset', reset: { text: 'The agent reads it.', seconds: 0.9, sfx: 'sfx-whoosh.wav' } },
-    // 3. terminal: the agent's real output, typed out large (footage text is unreadable at feed size)
-    { kind: 'terminal', terminal: { command: 'claude -p "apply the review comments"', lines: ['Comment: "Way too long for a title. One line, say what we decide."', 'Changed: h1 → "Decision: move ingestion from nightly batch to event-driven streaming"', 'New version: ymXfa_w3feR1tcjf  ·  same URL, thread resolved'], seconds: 4.2 } },
-    { kind: 'reset', reset: { text: 'Same URL.', seconds: 0.9, sfx: 'sfx-whoosh.wav' } },
-    // 4. reveal: new title, then the resolved thread
-    { kind: 'beat', beat: { src: 'reveal.mp4', ...BROWSER, from: 2.0, to: 4.8, focus: { x: 960, y: 300, scale: 1.35 }, caption: 'Title fixed. Thread resolved.' } },
-    { kind: 'beat', beat: { src: 'reveal.mp4', ...BROWSER, from: 9.6, to: 13.0, focus: { x: 1720, y: 300, scale: 2.4 }, clicks: [{ at: 0.2, x: 1530, y: 85 }] } },
+    // 1. reviewer selects the decision line and opens the composer
+    { kind: 'beat', beat: { src: 'comment.mp4', ...BROWSER, from: 2.4, to: 6.2, focus: { x: 960, y: 560, scale: 1.4 }, focusEnd: { x: 960, y: 520, scale: 2.3 }, clicks: [{ at: 0.9, x: 845, y: 481 }, { at: 2.7, x: 934, y: 537 }], caption: 'You comment. Right on the doc.' } },
+    // 2. one line, post
+    { kind: 'beat', beat: { src: 'comment.mp4', ...BROWSER, from: 6.4, to: 11.0, focus: { x: 1030, y: 650, scale: 3.3 }, clicks: [{ at: 2.5, x: 1127, y: 721 }], caption: 'One line is enough.' } },
+    { kind: 'reset', reset: { text: 'AI fixes.', seconds: 0.9, sfx: 'sfx-whoosh.wav' } },
+    // 3. the agent's real output, typed
+    { kind: 'terminal', terminal: { command: 'claude -p "apply the review comments"', lines: ['Comment: "We don\'t have 6 weeks. Give me the 3-week cut."', 'Changed: 6 wk / $38k / +11%  →  3 wk / $19k / +9%, provider-hosted vault', 'New version: Rhgl9f4Xwh9hPLoY  ·  same URL, thread resolved'], seconds: 4.4 } },
+    { kind: 'reset', reset: { text: 'Next version.\nSame URL.', seconds: 1.0, sfx: 'sfx-whoosh.wav' } },
+    // 4. reveal: the decision card changed, then the resolved thread
+    { kind: 'beat', beat: { src: 'reveal.mp4', ...BROWSER, from: 2.0, to: 5.0, focus: { x: 960, y: 590, scale: 2.1 }, caption: '3 weeks. Decided.' } },
+    { kind: 'beat', beat: { src: 'reveal.mp4', ...BROWSER, from: 7.0, to: 10.0, focus: { x: 1720, y: 330, scale: 2.4 }, clicks: [{ at: 0.0, x: 1701, y: 123 }], caption: 'Thread resolved.' } },
   ],
-  endTagline: 'Humans point. Agents edit.',
+  endTagline: 'Share HTML with your team.\nJust tell your AI.',
   endUrl: 'artifactshare.com',
-  endSeconds: 2.6,
+  endSeconds: 2.8,
   bed: 'bgm-bed.wav',
 }
 
@@ -109,7 +110,7 @@ const SmallCaption: React.FC<{ text: string }> = ({ text }) => {
   const f = useCurrentFrame(); const { fps } = useVideoConfig(); const p = pop(f, fps)
   return (
     <div style={{ position: 'absolute', left: 0, right: 0, bottom: 120, display: 'flex', justifyContent: 'center', opacity: p, transform: `translateY(${(1 - p) * 20}px)` }}>
-      <div style={{ fontFamily: 'LINESeedJP', fontSize: 52, lineHeight: 1.2, color: '#fff', background: UI.pill, padding: '14px 26px', borderRadius: 14, maxWidth: 940, textAlign: 'center' }}>{text}</div>
+      <div style={{ fontFamily: 'Geist', fontWeight: 500, fontSize: 52, lineHeight: 1.2, color: '#fff', background: UI.pill, padding: '14px 26px', borderRadius: UI.radius, maxWidth: 940, textAlign: 'center' }}>{text}</div>
     </div>
   )
 }
@@ -119,7 +120,7 @@ const ResetCard: React.FC<{ r: Reset }> = ({ r }) => {
   return (
     <AbsoluteFill style={{ background: UI.bg, alignItems: 'center', justifyContent: 'center' }}>
       {r.sfx ? <Audio src={staticFile(r.sfx)} /> : null}
-      <div style={{ fontFamily: 'LINESeedJP', fontSize: 104, color: UI.ink, textAlign: 'center', lineHeight: 1.1, opacity: p, transform: `scale(${0.9 + 0.1 * p})` }}>{r.text}</div>
+      <div style={{ fontFamily: 'Geist', fontWeight: 600, fontSize: 104, whiteSpace: 'pre-line', color: UI.ink, textAlign: 'center', lineHeight: 1.1, opacity: p, transform: `scale(${0.9 + 0.1 * p})` }}>{r.text}</div>
     </AbsoluteFill>
   )
 }
@@ -131,14 +132,14 @@ const TerminalCard: React.FC<{ t: Terminal }> = ({ t }) => {
   const cmd = typed(t.command, 0.1, 40)
   const starts = [1.2, 2.1, 3.0]
   return (
-    <AbsoluteFill style={{ background: '#111318', padding: '120px 70px', justifyContent: 'center' }}>
+    <AbsoluteFill style={{ background: '#1b1a17', padding: '120px 70px', justifyContent: 'center' }}>
       <Audio src={staticFile('sfx-click.wav')} startFrom={0} />
-      <div style={{ fontFamily: 'Menlo, monospace', fontSize: 34, color: '#7ee787', marginBottom: 36 }}><span style={{ color: '#8b93a7' }}>~/docs % </span>{cmd}<span style={{ opacity: Math.floor(sec * 2) % 2 ? 1 : 0 }}>▍</span></div>
+      <div style={{ fontFamily: 'Menlo, monospace', fontSize: 34, color: '#c9b8ff', marginBottom: 36 }}><span style={{ color: '#8b93a7' }}>~/docs % </span>{cmd}<span style={{ opacity: Math.floor(sec * 2) % 2 ? 1 : 0 }}>▍</span></div>
       {t.lines.map((l, i) => {
         const vis = sec >= starts[i]!; const p = pop(Math.max(0, f - Math.round(starts[i]! * fps)), fps)
         return <div key={i} style={{ fontFamily: 'Menlo, monospace', fontSize: 38, lineHeight: 1.5, color: i === 1 ? '#fff' : '#c9d1d9', marginBottom: 22, opacity: vis ? p : 0, transform: `translateY(${(1 - p) * 14}px)`, wordBreak: 'break-word' }}>{l}</div>
       })}
-      <div style={{ position: 'absolute', left: 0, right: 0, bottom: 120, textAlign: 'center', fontFamily: 'LINESeedJP', fontSize: 52, color: '#fff' }}>Edits the file. Republishes.</div>
+      <div style={{ position: 'absolute', left: 0, right: 0, bottom: 120, textAlign: 'center', fontFamily: 'Geist', fontWeight: 500, fontSize: 52, color: '#fff' }}>Edits the doc. Republishes.</div>
     </AbsoluteFill>
   )
 }
@@ -153,9 +154,9 @@ const Hook: React.FC<{ text: string; seconds: number }> = ({ text, seconds }) =>
         <OffthreadVideo src={staticFile('comment.mp4')} trimBefore={60} muted style={{ width: '100%', height: '100%' }} />
       </div>
       <div style={{ position: 'absolute', left: 80, right: 80, top: 0, bottom: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ fontFamily: 'LINESeedJP', fontSize: 92, lineHeight: 1.12, color: UI.ink, textAlign: 'center', whiteSpace: 'pre-line', opacity: p, transform: `translateY(${(1 - p) * 30}px)`, textShadow: '0 2px 24px rgba(246,247,251,0.9)' }}>{text}</div>
+        <div style={{ fontFamily: 'Geist', fontWeight: 600, fontSize: 92, lineHeight: 1.12, color: UI.ink, textAlign: 'center', whiteSpace: 'pre-line', opacity: p, transform: `translateY(${(1 - p) * 30}px)`, textShadow: '0 2px 24px rgba(246,247,251,0.9)' }}>{text}</div>
       </div>
-      <div style={{ position: 'absolute', top: 48, left: 0, right: 0, textAlign: 'center', fontFamily: 'LINESeedJP', fontSize: 34, color: UI.accent, letterSpacing: 2 }}>ARTIFACT SHARE</div>
+      <div style={{ position: 'absolute', top: 48, left: 0, right: 0, textAlign: 'center', fontFamily: 'Geist', fontSize: 30, fontWeight: 600, color: UI.muted, letterSpacing: 1 }}>Artifact Share</div>
     </AbsoluteFill>
   )
 }
@@ -165,8 +166,8 @@ const EndCard: React.FC<{ tagline: string; url: string }> = ({ tagline, url }) =
   return (
     <AbsoluteFill style={{ background: UI.bg, alignItems: 'center', justifyContent: 'center' }}>
       <Audio src={staticFile('sfx-success.wav')} />
-      <div style={{ fontFamily: 'LINESeedJP', fontSize: 96, color: UI.ink, textAlign: 'center', lineHeight: 1.1, maxWidth: 940, opacity: p, transform: `translateY(${(1 - p) * 24}px)` }}>{tagline}</div>
-      <div style={{ fontFamily: 'LINESeedJP', fontSize: 56, color: UI.accent, marginTop: 44, opacity: p2 }}>{url}</div>
+      <div style={{ fontFamily: 'Geist', fontWeight: 600, fontSize: 84, color: UI.ink, textAlign: 'center', lineHeight: 1.12, maxWidth: 940, whiteSpace: 'pre-line', opacity: p, transform: `translateY(${(1 - p) * 24}px)` }}>{tagline}</div>
+      <div style={{ fontFamily: 'Geist', fontSize: 56, color: UI.accent, marginTop: 44, opacity: p2 }}>{url}</div>
     </AbsoluteFill>
   )
 }
@@ -176,7 +177,7 @@ export const LoopAdV2: React.FC<AdV2Props> = (p) => {
   const total = adV2Duration(p)
   return (
     <AbsoluteFill style={{ background: UI.bg }}>
-      <style>{`@font-face{font-family:LINESeedJP;src:url(${staticFile('LINESeedJP-Bold.ttf')})}`}</style>
+      <style>{`@font-face{font-family:Geist;font-weight:400;src:url(${staticFile('Geist-400.ttf')})}@font-face{font-family:Geist;font-weight:500;src:url(${staticFile('Geist-500.ttf')})}@font-face{font-family:Geist;font-weight:600;src:url(${staticFile('Geist-600.ttf')})}`}</style>
       {p.bed ? <Audio src={staticFile(p.bed)} volume={0.5} /> : null}
       <Sequence from={0} durationInFrames={Math.round(p.hookSeconds * FPS)} layout="none"><Hook text={p.hook} seconds={p.hookSeconds} /></Sequence>
       {p.scenes.map((s, i) => {
