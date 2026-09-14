@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-14T06:17:31.683Z",
+  "generated_at": "2026-09-14T06:37:28.822Z",
   "note": "Sanitized aggregates. segment: owner | client-large | other. No PII.",
   "workspaces": [
     {
@@ -11,21 +11,21 @@
       "size": "50+",
       "members": 185,
       "posters": 46,
-      "posts": 1249,
-      "versions": 4411,
+      "posts": 1251,
+      "versions": 4426,
       "max_versions_one_doc": 124,
       "comments": 482,
       "commenters": 27,
-      "views": 7701,
+      "views": 7724,
       "last_active": "2026-09-14",
       "artifact_kinds": {
-        "html_page": 1024,
+        "html_page": 1026,
         "markdown_page": 191,
         "static_site": 34
       },
       "doc_types": {
         "report": 129,
-        "other": 1005,
+        "other": 1007,
         "ops_doc": 78,
         "prototype_demo": 21,
         "design_doc": 15,
@@ -33,7 +33,7 @@
       },
       "visibility": {
         "project": 255,
-        "workspace": 829,
+        "workspace": 831,
         "private": 165
       },
       "agent_created_posts": 29,
@@ -58,7 +58,7 @@
       "max_versions_one_doc": 94,
       "comments": 109,
       "commenters": 5,
-      "views": 21760,
+      "views": 21776,
       "last_active": "2026-09-14",
       "artifact_kinds": {
         "static_site": 15,
