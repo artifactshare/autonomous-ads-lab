@@ -62,6 +62,10 @@ export function installStrftime(db: Database.Database): void {
   )
 }
 
+// Replay order is file-name order. Names are timestamped to the millisecond
+// (since 2026-09-14; older names stop at the minute and used a random suffix,
+// which broke a rebuild when two runs fell in the same minute). Do not sort by
+// event `t`: backfill files carry synthetic, earlier `t` values.
 export function eventFiles(dir: string = EVENTS_DIR): string[] {
   if (!existsSync(dir)) return []
   return readdirSync(dir)
@@ -99,7 +103,7 @@ export function replayEvents(db: Database.Database, dir: string = EVENTS_DIR): n
  */
 export function withEventCapture(db: Database.Database, dir: string = EVENTS_DIR): Database.Database {
   const events: DbEvent[] = []
-  const fileName = `${new Date().toISOString().replace(/[:.]/g, '').slice(0, 15)}-${randomUUID().slice(0, 8)}.jsonl`
+  const fileName = `${new Date().toISOString().replace(/[:.]/g, '').slice(0, 19)}-${randomUUID().slice(0, 8)}.jsonl` // to milliseconds
 
   const flush = () => {
     if (!events.length) return
