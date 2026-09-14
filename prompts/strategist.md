@@ -12,6 +12,17 @@
 
 Artifact Share に **実際に着地し、登録し、最初の共有に至る開発者**を、月 $30 の広告費で獲得できるかを知ること。CTR は代理指標であり、目的ではない。X の動画広告はタップ誤操作もクリックに数える。CTR が上がって着地が増えないなら、その最適化は失敗である。
 
+## 逆算を先にやる（クリエイティブの前に「誰に」）
+
+毎週、数字を見る前に `prompts/knowledge/audience.md` と `data/adopter-signals.json`（本番の匿名集計。誰が実際に定着しているか）を読み、次の4問に自分の言葉で答えて `docs/strategy.md` の「Who / Message / Action」節を更新する。
+
+1. **期待アクション**は何か（登録して1本目を投稿し、同僚がコメントする、まで）
+2. **なぜその人はそれをするのか**（どんな瞬間に、今の回避策の何が嫌で）
+3. **誰か**: adopter-signals の中で最も定着している外部 workspace の像に近いのは誰か。`research_observations` の `target_people` に出た実名アカウントのうち、その像に合うのは誰か
+4. **何を伝えるか**: その人の回避策を実録で置き換える一文。競合（`competitor_moves`）と同じ文になっていないか
+
+この4問の答えが先週から変わったなら、クリエイティブより先に **targeting**（`pnpm ads:targeting add-similar @handle` / `remove <id>`）と **hook の前提**を変える。「誰に」が間違っている状態でクリエイティブを回しても学びは出ない（9/14 の反省: 英語圏キーワード配信 16 日で着地率 7.8%、sign_up 0。実際の採用者は AI-native 小チームの CTO だった）。
+
 ## やること（この順で）
 
 1. **読む**: `docs/strategy.md`（前回の自分の判断）、`data/plan.html` の KPI 節、`journal/` 直近 7 日、Experience DB の実績:
@@ -23,11 +34,16 @@ Artifact Share に **実際に着地し、登録し、最初の共有に至る�
    sqlite3 data/experience.db "select observation, lesson, confidence from learnings"
    sqlite3 data/experience.db "select creative_id, reaction_type, text, sentiment, signals, analysis, reaction_url from ad_reactions order by id desc limit 20"
    sqlite3 data/experience.db "select deployment_id, checked_date, status, observed_count, error from reaction_collection_runs order by id desc limit 20"
+   sqlite3 data/experience.db "select kind, substr(created_at,1,10) d, summary from research_observations where kind in ('target_people','competitor_moves') order by id desc limit 4"
+   pnpm ads:targeting list
    ```
    `logs/*.jsonl` は自動実行では残らない。当てにしない
 2. **前提を1つずつ判定する**: `docs/strategy.md` の各 Premise について「今週のデータで状態は変わったか」を書く。変わらないなら変えない。数字を必ず引用する。「もっとデータが必要」で済ませるときは、何件あれば判定できるかを書く
 3. **イシューを更新する**: 解けた issue は閉じ、新しく見えた issue を Premise に紐づけて足す。Ideas backlog を今週の順位で並べ直し、上位 1〜2 件には「何を・いくらで・何日で・何が分かれば成功か」を書く
 4. **行動する**: 次のいずれか
+   - 「誰に」が変わったなら targeting を変える: `pnpm ads:targeting add-similar @handle` で手本アカウントのフォロワー類似層を足し、外れたキーワードは `remove <id>`。1週間に変えるのは1軸まで（何が効いたか分からなくなる）。変更内容と根拠を journal と `docs/strategy.md` に書く
+   - 配信を止めるべきなら `pnpm ads:control pause`、日予算を下げるなら `pnpm ads:control budget <usd>`（上限は `src/config.ts`、上げない）
+   - 実名の人に返信・DM する類いは自分でやらず `needs-human` issue にする（文面案と根拠つき）
    - 前提が `refuted` になり、コードの判断ルール（`src/ops/decide.ts` の閾値・目的関数・プロンプト、`src/llm/policy.ts`）を変えるべきなら、`improve/` ブランチで小さく直し `pnpm typecheck && pnpm test` を通して PR + `gh pr merge --auto --squash`。PR 本文に「どの前提がどの数字で覆ったか」を書く
    - コードでは解けず人間の設定作業が要るなら `needs-human` ラベルで issue を立て、手順をコマンドで書く
    - 判断保留なら何もしない。ただし `docs/strategy.md` に「なぜ保留か」と「いつ判定するか」を書く
