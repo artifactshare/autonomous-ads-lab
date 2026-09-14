@@ -39,10 +39,12 @@ export interface DeployResult {
 
 // X Ads media constraint (2026-09-14, INVALID_MEDIA on cards): width:height must be one of these.
 const X_ASPECTS: Array<[number, number]> = [[2, 3], [4, 5], [191, 100], [1, 1], [9, 16], [16, 9]]
+export function isXAcceptedAspect(w: number, h: number): boolean {
+  return X_ASPECTS.some(([a, b]) => Math.abs(w / h - a / b) < 0.01)
+}
 export function assertXVideoAspect(videoPath: string): void {
   const [w, h] = execFileSync('ffprobe', ['-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=width,height', '-of', 'csv=p=0', videoPath], { encoding: 'utf8' }).trim().split(',').map(Number)
-  const ok = X_ASPECTS.some(([a, b]) => Math.abs(w! / h! - a / b) < 0.01)
-  if (!ok) throw new Error(`video ${w}x${h} is not an X-accepted aspect (allowed: ${X_ASPECTS.map(([a, b]) => `${a}:${b}`).join(', ')}) — re-render at 4:5 (1080x1350) or 1:1`)
+  if (!isXAcceptedAspect(w!, h!)) throw new Error(`video ${w}x${h} is not an X-accepted aspect (allowed: ${X_ASPECTS.map(([a, b]) => `${a}:${b}`).join(', ')}) — re-render at 4:5 (1080x1350) or 1:1`)
 }
 
 export async function deployCreative(
