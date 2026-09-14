@@ -38,7 +38,7 @@ Every paid action passes through the Budget Controller's `authorize(cost_estimat
 - **Creative**: fal (MiniMax H3 Max) generates video; readable copy (brand, CTA) is burned in post with ffmpeg because generated on-screen text is unreliable
 - **Evaluation**: frame-based rubric scoring (7 axes + hard constraints) via Claude — treated as a *prediction* to be compared against actual CTR
 - **Research**: Grok (x_search / web_search) monitors mentions, developer pain points, and ad techniques; findings enter a Technique Library and stay `discovered` until experiments validate them
-- **Deployment**: X Ads (manual via Ads Manager until Ads API access is approved)
+- **Deployment**: X Ads API (video upload → card → promoted-only post → promoted tweet on the running ad group; old ad paused). `pnpm ads:deploy --creative N --apply`
 - **Self-improvement**: a weekly harness agent reads journals/logs/CI, files issues, and ships small fixes via PR with CI-gated auto-merge
 - **Strategy**: a weekly strategist agent (fable) re-examines the experiment's premises against our own numbers, keeps the issue tree in [docs/strategy.md](docs/strategy.md), and ranks what to try next. Objective ladder: CTR is only a dead-creative guard; decisions use cost per landed session (GA4); sign-ups and first shares are the north star
 - **Model tiering**: fable-5 only for hypothesis work (capped), opus-5 for numeric analysis, sonnet-5 for frequent language work — see [docs/model-policy.md](docs/model-policy.md)

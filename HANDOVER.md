@@ -147,7 +147,7 @@ Artifact Share専用hardcodeにせず、将来 `domain/another_product/` を追�
 |---|---|
 | 1 | repo初期化、config、DB schema、Budget Controller（月次+日次cap）、structured logging |
 | 2 | fal生成 + 評価pipeline |
-| 3 | X Ads API接続（入稿・start/pause・metrics） |
+| 3 | X Ads API接続（入稿・start/pause・metrics）— 2026-09-14 完了 |
 | 4 | UTM + Artifact Share product events結合 |
 | 5 | 日次運用ループ + 週次learning loop |
 | 6 | Living Report自動更新 |

@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import type Database from 'better-sqlite3'
 import { BudgetController } from '../budget/controller.ts'
 import type { Logger } from '../logging/logger.ts'
@@ -217,7 +218,53 @@ Then output ONLY a JSON array (no fences) of at most 3 techniques: [{"name": "..
       notes.push('ad_trends: response was not parseable as techniques JSON')
     }
   }
+  // Who is actually adopting (sanitized aggregates from production, data/adopter-signals.json)
+  // drives the "who" questions. The strategist backward-chains from these, not from CTR.
+  const profile = adopterProfileSummary()
+  const people = await runQuery(
+    db,
+    log,
+    'target_people',
+    `Our product (Artifact Share) is adopted by teams like this: ${profile}
+Find English-language X accounts who match that profile or speak to it: founders / CTOs / founding engineers of small AI-native teams who generate design docs, briefs, teardowns or reports WITH coding agents (Claude Code, Codex, Cursor) and review them with teammates; and people complaining about sharing/reviewing agent output (Claude Artifacts sharing limits, Vercel-just-to-share-a-doc, versions in Slack, Notion not fitting agents). Last 14 days.
+For each: @handle, approximate follower count, what they build, one representative quote with engagement numbers. Rank by follower count. Mark which ones ask for the product outright. If nothing meaningful, say "INSUFFICIENT_DATA".`,
+    { xSearch: { fromDate: daysAgo(14), toDate: week.toDate } },
+  )
+  if (people) notes.push(`target_people: ${people.slice(0, 300)}`)
+
+  const competitors = await runQuery(
+    db,
+    log,
+    'competitor_moves',
+    `Search X for the last 14 days: products that turn coding-agent output (Claude Code, Codex, Cursor) into shareable pages or team-reviewable docs (e.g. Showly, Velven, Claude Artifacts publishing, Codex share, Vercel previews, v0/Lovable/Bolt sharing). For each: who is promoting it (@handle, followers, paid-looking or organic), the exact one-line message they use, engagement, and what their message leaves out (team ownership, agent-neutral, comments that feed back to the agent, same URL across versions). If nothing meaningful, say "INSUFFICIENT_DATA".`,
+    { xSearch: { fromDate: daysAgo(14), toDate: week.toDate } },
+  )
+  if (competitors) notes.push(`competitor_moves: ${competitors.slice(0, 300)}`)
   return notes
+}
+
+function daysAgo(n: number): string {
+  return new Date(Date.now() - n * 86400_000).toISOString().slice(0, 10)
+}
+
+// Compact, PII-free description of who actually adopts, from data/adopter-signals.json.
+export function adopterProfileSummary(): string {
+  try {
+    const d = JSON.parse(readFileSync('data/adopter-signals.json', 'utf8')) as {
+      workspaces: Array<Record<string, unknown> & { segment: string; plan: string; size: string; name_script: string; posts: number; versions: number; comments: number; doc_types: Record<string, number>; first_post_channels: Record<string, number> }>
+    }
+    const ext = d.workspaces.filter((w) => w.segment === 'other' && w.posts >= 5).slice(0, 6)
+    if (!ext.length) return 'no external adopter data yet'
+    return ext
+      .map((w) => {
+        const types = Object.entries(w.doc_types).filter(([k]) => k !== 'other').sort((a, b) => b[1] - a[1]).slice(0, 3).map(([k, v]) => `${k}:${v}`).join(',')
+        const ch = Object.entries(w.first_post_channels).map(([k, v]) => `${k}:${v}`).join(',')
+        return `[${w.plan} plan, ${w.size} people, names ${w.name_script}, ${w.posts} posts/${w.versions} versions/${w.comments} comments, doc types ${types || 'n/a'}, first post via ${ch || 'n/a'}]`
+      })
+      .join(' ')
+  } catch {
+    return 'no external adopter data yet'
+  }
 }
 
 /**

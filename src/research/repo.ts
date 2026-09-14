@@ -1,7 +1,7 @@
 import type Database from 'better-sqlite3'
 
 export interface Observation {
-  kind: 'mentions' | 'ad_reactions' | 'pain_points' | 'ad_trends' | 'techniques'
+  kind: 'mentions' | 'ad_reactions' | 'pain_points' | 'ad_trends' | 'techniques' | 'target_people' | 'competitor_moves'
   query: string
   source: 'grok' | 'web'
   summary: string
