@@ -8,7 +8,7 @@ import type { Logger } from '../logging/logger.ts'
 
 type SaKey = { client_email: string; private_key: string }
 
-async function accessToken(key: SaKey): Promise<string> {
+export async function accessToken(key: SaKey): Promise<string> {
   const now = Math.floor(Date.now() / 1000)
   const b64 = (o: object) => Buffer.from(JSON.stringify(o)).toString('base64url')
   const unsigned = `${b64({ alg: 'RS256', typ: 'JWT' })}.${b64({
