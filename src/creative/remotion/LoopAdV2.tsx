@@ -52,7 +52,7 @@ export const defaultAdV2Props: AdV2Props = {
     { kind: 'beat', beat: { src: 'reveal.mp4', ...BROWSER, from: 2.0, to: 5.0, focus: { x: 960, y: 590, scale: 2.1 }, caption: '3 weeks. Decided.' } },
     { kind: 'beat', beat: { src: 'reveal.mp4', ...BROWSER, from: 7.0, to: 10.0, focus: { x: 1720, y: 330, scale: 2.4 }, clicks: [{ at: 0.0, x: 1701, y: 123 }], caption: 'Thread resolved.' } },
   ],
-  endTagline: 'Share once. Review at one URL.\nAny agent.',
+  endTagline: 'Share once.\nReview at one URL.\nAny agent.',
   endUrl: 'artifactshare.com',
   endSeconds: 2.8,
   bed: 'bgm-bed.wav',
@@ -157,15 +157,26 @@ const TerminalCard: React.FC<{ t: Terminal }> = ({ t }) => {
 
 const Hook: React.FC<{ text: string; seconds: number }> = ({ text, seconds }) => {
   const f = useCurrentFrame(); const { fps } = useVideoConfig(); const p = Math.max(0.85, pop(f, fps))
-  const drift = interpolate(f, [0, seconds * fps], [1.0, 1.08])
+  const drift = interpolate(f, [0, seconds * fps], [1.0, 1.1])
   return (
     <AbsoluteFill style={{ background: UI.bg, overflow: 'hidden' }}>
-      {/* footage keeps moving behind the hook so the opening is not a still */}
-      <div style={{ position: 'absolute', left: -200, top: -60, width: 1480, height: 833, transform: `scale(${drift})`, transformOrigin: '50% 50%', opacity: 0.45, filter: 'blur(3px)' }}>
-        <OffthreadVideo src={staticFile('comment.mp4')} trimBefore={60} muted style={{ width: '100%', height: '100%' }} />
+      {/* live footage behind the hook: the reviewer's selection + composer opening, camera pushing in, so frame 0 already moves */}
+      <div style={{ position: 'absolute', left: 0, top: 0, width: 1080, height: 1350, transform: `translate(${-520 * drift}px, ${-380 * drift}px) scale(${1.9 * drift})`, transformOrigin: '0 0', opacity: 0.55 }}>
+        <OffthreadVideo src={staticFile('comment.mp4')} trimBefore={Math.round(2.9 * fps)} muted style={{ width: 1920, height: 1080 }} />
       </div>
+      <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(255,255,255,0.35) 0%, rgba(255,255,255,0.75) 45%, rgba(255,255,255,0.35) 100%)' }} />
       <div style={{ position: 'absolute', left: 80, right: 80, top: 0, bottom: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 28 }}>
-        <div style={{ fontFamily: 'Geist', fontWeight: 600, fontSize: 92, lineHeight: 1.12, color: UI.ink, textAlign: 'center', whiteSpace: 'pre-line', opacity: p, transform: `translateY(${(1 - p) * 30}px)`, textShadow: '0 2px 24px rgba(246,247,251,0.9)' }}>{text}</div>
+        <div style={{ fontFamily: 'Geist', fontWeight: 600, fontSize: 92, lineHeight: 1.12, color: UI.ink, textAlign: 'center', textShadow: '0 2px 24px rgba(246,247,251,0.9)' }}>
+          {text.split('\n').map((line, li) => (
+            <div key={li}>
+              {line.split(' ').map((w, wi) => {
+                const idx = text.split('\n').slice(0, li).reduce((n, l) => n + l.split(' ').length, 0) + wi
+                const wp = pop(Math.max(0, f - idx * 3), fps)
+                return <span key={wi} style={{ display: 'inline-block', marginRight: 22, opacity: wp, transform: `translateY(${(1 - wp) * 40}px) scale(${0.8 + 0.2 * wp})` }}>{w}</span>
+              })}
+            </div>
+          ))}
+        </div>
         <div style={{ fontFamily: 'Geist', fontWeight: 500, fontSize: 40, color: UI.accent, opacity: p, background: 'rgba(255,255,255,0.9)', padding: '8px 18px', borderRadius: UI.radius }}>Review AI-written docs at one URL</div>
       </div>
       <Wordmark />
@@ -180,7 +191,7 @@ const EndCard: React.FC<{ tagline: string; url: string }> = ({ tagline, url }) =
       <Wordmark />
       <Audio src={staticFile('sfx-success.wav')} />
       <div style={{ fontFamily: 'Geist', fontWeight: 600, fontSize: 84, color: UI.ink, textAlign: 'center', lineHeight: 1.12, maxWidth: 940, whiteSpace: 'pre-line', opacity: p, transform: `translateY(${(1 - p) * 24}px)` }}>{tagline}</div>
-      <div style={{ marginTop: 48, opacity: p2, background: UI.accent, color: '#fff', fontFamily: 'Geist', fontWeight: 600, fontSize: 44, padding: '20px 44px', borderRadius: UI.radius }}>Try it free → {url}</div>
+      <div style={{ marginTop: 48, opacity: p2, background: UI.ink, color: '#fff', fontFamily: 'Geist', fontWeight: 600, fontSize: 46, padding: '22px 48px', borderRadius: UI.radius, boxShadow: '0 6px 24px rgba(55,53,47,0.25)' }}>Try it free → {url}</div>
     </AbsoluteFill>
   )
 }
