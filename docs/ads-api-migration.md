@@ -3,6 +3,11 @@
 2026-09-14 時点。App 33371617 は Standard アクセス付与済み(8/31)、metrics 同期は API 化済み(#139, #140)。
 残りは「入稿・差し替え」と「bridge の撤去」。実口座の構造を API で読んで確認した事実に基づく。
 
+## 進捗
+
+- 2026-09-14 15:00: A1〜A9 実装(`src/ads/deploy.ts`)、creative 8 を API で入稿・creative 3 を pause(#44 消化)。B1〜B4 は `src/ads/control.ts` + `pnpm ads:control`。E1/E3/E4 完了、daily は `ADS_DEPLOY_APPLY=1` で勝者を自動デプロイ。D は bridge の workflow を無効化
+- 学び: `PUT promoted_tweets` は entity_status を受けない(pause は DELETE)。event log は write-through にした(途中 crash で ad_assets が消え、投稿が二重生成された)
+
 ## 現在の口座構造(API で確認)
 
 | 層 | id | 内容 |

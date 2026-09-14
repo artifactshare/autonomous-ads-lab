@@ -8,7 +8,7 @@
 - [x] 広告アカウント作成確認: **account ID `18ce55x0rpo`**（ads.x.com、Ads Manager操作可能）
 - [ ] 広告アカウントの支払い方法設定（カード入力は人間作業）
 - [ ] fal.ai アカウント作成 + `FAL_KEY` 発行（人間作業）
-- [ ] Ads API承認待ち。1週間応答なければ devcommunity へ催促スレッド
+- [x] Ads API承認(2026-08-31 メール、App 33371617、Standard)。2026-09-14 に接続・metrics/入稿を API 化
 
 ## 1. X Ads API
 

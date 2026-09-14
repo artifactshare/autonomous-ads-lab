@@ -261,3 +261,15 @@ create table if not exists conversions (
   synced_at text not null default (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
   unique (date, campaign)
 );
+
+-- X Ads API creative assets, one row per creative. Lets a failed/partial deploy
+-- resume without re-uploading or re-creating entities (idempotency).
+create table if not exists ad_assets (
+  creative_id integer primary key references creatives(id),
+  media_key text,
+  card_uri text,
+  tweet_id text,
+  promoted_tweet_id text,
+  approval_status text,
+  updated_at text not null default (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);

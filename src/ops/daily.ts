@@ -22,6 +22,10 @@ const adsApiNotes: string[] = []
 try {
   const { syncAdsApiMetrics } = await import('./ads-api-metrics.ts')
   adsApiNotes.push(...(await syncAdsApiMetrics(db)))
+  const { refreshApproval } = await import('../ads/deploy.ts')
+  adsApiNotes.push(...(await refreshApproval(db)))
+  const { checkFunding } = await import('../ads/control.ts')
+  adsApiNotes.push(...(await checkFunding()))
 } catch (err) {
   log.error('ads_api_sync_failed', { error: String(err).slice(0, 500) })
   adsApiNotes.push(`ads-api sync failed (bridge scrape remains source): ${String(err).slice(0, 200)}`)
@@ -66,13 +70,13 @@ const fresh = db
 const watchdogNotes: string[] = []
 if (fresh.n === 0) {
   log.warn('metrics_stale', { missingDate: yesterday })
-  watchdogNotes.push(`watchdog: no metrics for ${yesterday} — bridge likely down (Slack alerted)`)
+  watchdogNotes.push(`watchdog: no metrics for ${yesterday} — Ads API sync failed or nothing served (Slack alerted)`)
   if (process.env.SLACK_WEBHOOK_URL) {
     await fetch(process.env.SLACK_WEBHOOK_URL, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
-        text: `⚠️ metrics watchdog: no performance data for ${yesterday}. Bridge runner offline or scrape broken — check https://github.com/artifactshare/ads-lab-bridge/actions`,
+        text: `⚠️ metrics watchdog: no performance data for ${yesterday}. Ads API sync failed or the ad served nothing — check the Daily Ops run log`,
       }),
     }).catch(() => {})
   }
