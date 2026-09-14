@@ -11,15 +11,21 @@
     "ads:metrics": "tsx src/ops/ads-api-metrics.ts",
     "ads:deploy": "tsx src/ops/ads-deploy.ts",
     "ads:control": "tsx src/ops/ads-control.ts",
-    "ads:targeting": "tsx src/ops/ads-targeting.ts"
+    "ads:targeting": "tsx src/ops/ads-targeting.ts",
+    "creative:footage": "tsx src/ops/creative-footage.ts"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.3.250",
-    "better-sqlite3": "^13.0.3"
+    "@remotion/cli": "4.0.524",
+    "better-sqlite3": "^13.0.3",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "remotion": "4.0.524"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^9.6.0",
     "@types/node": "^26.4.0",
+    "@types/react": "^19.3.0",
     "tsx": "^4.23.12",
     "typescript": "^7.0.2",
     "vitest": "^4.1.11"

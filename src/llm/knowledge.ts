@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs'
 
-export type KnowledgeDomain = 'h3max-prompting' | 'video-ads' | 'marketing-strategy'
+export type KnowledgeDomain = 'h3max-prompting' | 'video-ads' | 'marketing-strategy' | 'audience'
 
 /**
  * Load internalized knowledge for prompt assembly. Every generation /
