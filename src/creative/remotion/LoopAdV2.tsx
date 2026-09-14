@@ -1,7 +1,7 @@
 // v2: 4:5 feed format, one element per beat, camera that moves to the action,
 // kinetic text between scenes, click rings, SFX + ambient bed, tagline end card.
 // Follows prompts/knowledge/video-ads.md §6. Footage is the same three real clips.
-import { AbsoluteFill, Audio, OffthreadVideo, Sequence, staticFile, useCurrentFrame, useVideoConfig, interpolate, spring, Easing } from 'remotion'
+import { AbsoluteFill, Img, Audio, OffthreadVideo, Sequence, staticFile, useCurrentFrame, useVideoConfig, interpolate, spring, Easing } from 'remotion'
 import React from 'react'
 
 export const FPS = 30
@@ -107,7 +107,7 @@ const BeatView: React.FC<{ b: Beat }> = ({ b }) => {
 
 const Wordmark: React.FC<{ dark?: boolean }> = ({ dark }) => (
   <div style={{ position: 'absolute', top: 40, left: 44, display: 'flex', alignItems: 'center', gap: 12, background: dark ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.92)', border: dark ? '1px solid rgba(255,255,255,0.18)' : '1px solid rgba(55,53,47,0.12)', borderRadius: 999, padding: '10px 18px 10px 12px' }}>
-    <div style={{ width: 26, height: 26, borderRadius: 6, background: UI.accent, color: '#fff', fontFamily: 'Geist', fontWeight: 600, fontSize: 15, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>as</div>
+    <Img src={staticFile('logo.svg')} style={{ width: 28, height: 28 }} />
     <div style={{ fontFamily: 'Geist', fontWeight: 600, fontSize: 26, color: dark ? '#fff' : UI.ink }}>Artifact Share</div>
     <div style={{ fontFamily: 'Geist', fontWeight: 400, fontSize: 24, color: dark ? '#c9d1d9' : UI.muted }}>artifactshare.com</div>
   </div>
