@@ -15,6 +15,18 @@ const db = openDb()
 const log = Logger.newRun('logs/daily.jsonl', db)
 pruneRunLogs(db)
 
+// Metrics: X Ads API (app 33371617, Standard access granted 2026-08-31) when
+// the X_ADS_* secrets are set; otherwise the ads-lab-bridge scrape still feeds
+// `performance`. Runs first so the ledger sync below sees today's actuals.
+const adsApiNotes: string[] = []
+try {
+  const { syncAdsApiMetrics } = await import('./ads-api-metrics.ts')
+  adsApiNotes.push(...(await syncAdsApiMetrics(db)))
+} catch (err) {
+  log.error('ads_api_sync_failed', { error: String(err).slice(0, 500) })
+  adsApiNotes.push(`ads-api sync failed (bridge scrape remains source): ${String(err).slice(0, 200)}`)
+}
+
 // Ad spend happens on X's side (campaign was deployed manually), so it never
 // passes authorize(). Sync scraped actuals from `performance` into the ledger
 // so budget caps and the report both count real media spend. Idempotent per
@@ -95,7 +107,8 @@ const deployments = db
 
 const done = [
   `budget check: creative $${budget.month.creative.spent.toFixed(2)}/$${budget.month.creative.limit}, ads $${budget.month.ads.spent.toFixed(2)}/$${budget.month.ads.limit} (today $${budget.today.ads.spent.toFixed(2)}/$${budget.today.ads.limit})`,
-  `${deployments.n} active deployment(s); metrics via bridge scrape (Ads API approval pending)`,
+  `${deployments.n} active deployment(s); metrics via ${process.env.X_ADS_ACCESS_TOKEN ? 'X Ads API' : 'bridge scrape (X_ADS_* secrets not set)'}`,
+  ...adsApiNotes,
   ...watchdogNotes,
 ]
 
