@@ -1,0 +1,1 @@
+{"t":"2026-09-14T13:40:50.105Z","s":"update creatives set hook = ?, message = ?, cta = ?, deployment_eligible = 1 where id = 27","p":["Your agent wrote the spec. Who reviews it?","Comment on the doc, your agent applies it. Same URL. Any agent. artifactshare.com","Try it free — artifactshare.com"]}

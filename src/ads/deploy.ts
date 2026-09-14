@@ -5,6 +5,7 @@
 // a partial run resumes instead of duplicating.
 import type Database from 'better-sqlite3'
 import { join } from 'node:path'
+import { execFileSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { uploadAmplifyVideo } from './media-upload.ts'
 import {
@@ -36,10 +37,18 @@ export interface DeployResult {
   notes: string[]
 }
 
+// X Ads media constraint (2026-09-14, INVALID_MEDIA on cards): width:height must be one of these.
+const X_ASPECTS: Array<[number, number]> = [[2, 3], [4, 5], [191, 100], [1, 1], [9, 16], [16, 9]]
+export function assertXVideoAspect(videoPath: string): void {
+  const [w, h] = execFileSync('ffprobe', ['-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=width,height', '-of', 'csv=p=0', videoPath], { encoding: 'utf8' }).trim().split(',').map(Number)
+  const ok = X_ASPECTS.some(([a, b]) => Math.abs(w! / h! - a / b) < 0.01)
+  if (!ok) throw new Error(`video ${w}x${h} is not an X-accepted aspect (allowed: ${X_ASPECTS.map(([a, b]) => `${a}:${b}`).join(', ')}) — re-render at 4:5 (1080x1350) or 1:1`)
+}
+
 export async function deployCreative(
   db: Database.Database,
   creativeId: number,
-  opts: { apply: boolean; replaces?: number; videoPath?: string; log?: (m: string) => void },
+  opts: { apply: boolean; replaces?: number; parallel?: boolean; videoPath?: string; log?: (m: string) => void },
 ): Promise<DeployResult> {
   const log = opts.log ?? (() => {})
   const notes: string[] = []
@@ -53,6 +62,7 @@ export async function deployCreative(
   if (!creative) throw new Error(`creative ${creativeId} not found`)
   const videoPath = opts.videoPath ?? join('data', 'creatives', String(creativeId), 'final.mp4')
   if (!existsSync(videoPath)) throw new Error(`video not found: ${videoPath}`)
+  assertXVideoAspect(videoPath)
 
   const running = db
     .prepare("select id, creative_id, campaign_id, ad_group_id, ad_id, targeting, budget_usd from deployments where status = 'active' order by id desc limit 1")
@@ -133,10 +143,10 @@ export async function deployCreative(
     notes.push(`promoted_tweet ${pt.data[0]!.id} (${pt.data[0]!.approval_status})`)
   }
 
-  // 6. pause the replaced ad (every other ACTIVE promoted tweet on this line item)
+  // 6. pause the replaced ad (every other ACTIVE promoted tweet on this line item) — unless --parallel (A/B on one line item)
   const replaces = opts.replaces ?? running.creative_id
   const mine = assets().promoted_tweet_id
-  for (const p of await listPromotedTweets(creds, account, lineItemId)) {
+  for (const p of opts.parallel ? [] : await listPromotedTweets(creds, account, lineItemId)) {
     if (p.id !== mine && p.entity_status === 'ACTIVE') {
       await pausePromotedTweet(creds, account, p.id)
       notes.push(`paused promoted_tweet ${p.id} (tweet ${p.tweet_id})`)
@@ -146,7 +156,7 @@ export async function deployCreative(
   // 7. record
   const now = new Date().toISOString()
   db.transaction(() => {
-    db.prepare("update deployments set status = 'stopped', stopped_at = ? where status = 'active' and creative_id = ?").run(now, replaces)
+    if (!opts.parallel) db.prepare("update deployments set status = 'stopped', stopped_at = ? where status = 'active' and creative_id = ?").run(now, replaces)
     db.prepare(
       `insert into deployments (creative_id, platform, campaign_id, ad_group_id, ad_id, status, targeting, post_url, budget_usd, started_at)
        values (?, 'x', ?, ?, ?, 'active', ?, ?, ?, ?)`,
@@ -161,7 +171,7 @@ export async function deployCreative(
       now,
     )
   })()
-  notes.push(`deployment recorded: creative ${creativeId} active, creative ${replaces} stopped`)
+  notes.push(opts.parallel ? `deployment recorded: creative ${creativeId} active alongside creative ${replaces}` : `deployment recorded: creative ${creativeId} active, creative ${replaces} stopped`)
   return { status: 'deployed', notes }
 }
 
