@@ -10,6 +10,7 @@ import type { Logger } from '../logging/logger.ts'
 import { CreativeRepo, type NewCreative } from './repo.ts'
 import { evaluateLocalVideo } from './pipeline.ts'
 import { defaultAdProps, type AdProps } from './remotion/LoopAd.tsx'
+import { defaultAdV2Props, adV2Duration, FPS as V2_FPS, type AdV2Props } from './remotion/LoopAdV2.tsx'
 
 export const FOOTAGE_DIR = 'data/footage/loop-2026-09-14'
 export const FOOTAGE_MODEL = 'remotion-footage/loop-2026-09-14'
@@ -24,13 +25,18 @@ export function adPropsFor(v: HookVariant): AdProps {
   return { ...defaultAdProps, hook: v.hook, endTitle: v.endTitle ?? defaultAdProps.endTitle, captions: v.captions ?? defaultAdProps.captions }
 }
 
-export function renderAd(props: AdProps, outPath: string): void {
+// v2 (4:5 feed format, camera, kinetic text, SFX) is the default since 2026-09-14 evening.
+export function adV2PropsFor(v: HookVariant): AdV2Props {
+  return { ...defaultAdV2Props, hook: v.hook, endTagline: v.endTitle ?? defaultAdV2Props.endTagline }
+}
+
+export function renderAd(props: AdProps | AdV2Props, outPath: string, composition: 'LoopAd' | 'LoopAdV2' = 'LoopAdV2'): void {
   mkdirSync(resolve(outPath, '..'), { recursive: true })
   const propsFile = outPath.replace(/\.mp4$/, '.props.json')
   writeFileSync(propsFile, JSON.stringify(props))
   execFileSync(
     'npx',
-    ['remotion', 'render', 'src/creative/remotion/index.ts', 'LoopAd', outPath, '--props', propsFile, '--public-dir', FOOTAGE_DIR, '--codec', 'h264', '--crf', '18', '--log', 'error'],
+    ['remotion', 'render', 'src/creative/remotion/index.ts', composition, outPath, '--props', propsFile, '--public-dir', FOOTAGE_DIR, '--codec', 'h264', '--crf', '18', '--log', 'error'],
     { stdio: 'inherit' },
   )
   if (!existsSync(outPath)) throw new Error(`remotion produced no file at ${outPath}`)
@@ -45,11 +51,11 @@ export async function produceFootageCreative(
   const repo = new CreativeRepo(db)
   const creativeId = repo.createCreative(creative)
   const clog = log.child({ creativeId, experimentId: creative.experimentId })
-  const props = adPropsFor(variant)
+  const props = adV2PropsFor(variant)
   const videoPath = `data/creatives/${creativeId}/final.mp4`
   const t0 = Date.now()
-  clog.decision('render_footage_creative', `hook="${variant.hook}"`)
-  renderAd(props, videoPath)
+  clog.decision('render_footage_creative', `hook="${variant.hook}" composition=LoopAdV2`)
+  renderAd(props, videoPath, 'LoopAdV2')
   repo.recordSubmission(creativeId, FOOTAGE_MODEL, `local-${creativeId}`)
   repo.recordGeneration(creativeId, {
     assetUrl: videoPath,
@@ -60,6 +66,6 @@ export async function produceFootageCreative(
     latencyMs: Date.now() - t0,
     raw: null,
   })
-  const durationSec = Math.round(props.hookSeconds + props.endSeconds + 24.5)
+  const durationSec = Math.round(adV2Duration(props) / V2_FPS)
   return evaluateLocalVideo(db, clog, creativeId, { ...creative, assetUrl: videoPath }, videoPath, durationSec)
 }
