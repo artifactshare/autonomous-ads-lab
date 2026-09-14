@@ -40,6 +40,11 @@ jobs:
           GA4_PROPERTY_ID: ${{ vars.GA4_PROPERTY_ID }}
           GA4_SA_KEY_B64: ${{ secrets.GA4_SA_KEY_B64 }}
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          X_ADS_CONSUMER_KEY: ${{ secrets.X_ADS_CONSUMER_KEY }}
+          X_ADS_CONSUMER_SECRET: ${{ secrets.X_ADS_CONSUMER_SECRET }}
+          X_ADS_ACCESS_TOKEN: ${{ secrets.X_ADS_ACCESS_TOKEN }}
+          X_ADS_ACCESS_TOKEN_SECRET: ${{ secrets.X_ADS_ACCESS_TOKEN_SECRET }}
+          X_ADS_ACCOUNT_ID: ${{ vars.X_ADS_ACCOUNT_ID }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Commit Experience DB changes
         env:
