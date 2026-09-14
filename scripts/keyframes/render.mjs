@@ -8,7 +8,7 @@ import { shots } from './shots.mjs'
 const out = resolve(process.argv[2] ?? '/Users/coji/progs/artifactshare/media/h3-keyframes')
 mkdirSync(out, { recursive: true })
 const browser = await chromium.launch()
-const page = await browser.newPage({ viewport: { width: 1080, height: 1440 }, deviceScaleFactor: 1 })
+const page = await browser.newPage({ viewport: { width: 1080, height: 1350 }, deviceScaleFactor: 1 })
 const list = []
 for (const s of shots) {
   const entry = { id: s.id, durationSec: s.durationSec, holdSec: s.holdSec, prompt: s.prompt }

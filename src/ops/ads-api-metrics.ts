@@ -3,7 +3,7 @@
 // Idempotent per (creative, date), same contract as ads-lab-bridge/ingest.mts.
 import type Database from 'better-sqlite3'
 import { openDb } from '../db/index.ts'
-import { accountIdFromEnv, campaignDailyStats, credsFromEnv } from '../ads/x-ads-api.ts'
+import { accountIdFromEnv, campaignDailyStats, credsFromEnv, entityDailyStats } from '../ads/x-ads-api.ts'
 
 const JPY_PER_USD = Number(process.env.JPY_PER_USD ?? 150)
 const BACKFILL_DAYS = Number(process.env.ADS_API_BACKFILL_DAYS ?? 7)
@@ -16,8 +16,8 @@ export async function syncAdsApiMetrics(dbIn?: Database.Database): Promise<strin
   const accountId = accountIdFromEnv()
   const db = dbIn ?? openDb()
   const deployments = db
-    .prepare("select creative_id, campaign_id from deployments where platform = 'x' and campaign_id is not null")
-    .all() as Array<{ creative_id: number; campaign_id: string }>
+    .prepare("select creative_id, campaign_id, ad_id from deployments where platform = 'x' and campaign_id is not null")
+    .all() as Array<{ creative_id: number; campaign_id: string; ad_id: string | null }>
   const end = jstDay(Date.now() - 86400_000)
   const start = jstDay(Date.now() - BACKFILL_DAYS * 86400_000)
   const del = db.prepare('delete from performance where creative_id = ? and substr(observed_at, 1, 10) = ?')
@@ -26,7 +26,10 @@ export async function syncAdsApiMetrics(dbIn?: Database.Database): Promise<strin
   )
   const notes: string[] = []
   for (const d of deployments) {
-    const rows = await campaignDailyStats(creds, accountId, d.campaign_id, start, end)
+    // ad_id = promoted_tweet id (Ads API deployments). Older bridge-era rows have none → campaign total.
+    const rows = d.ad_id
+      ? await entityDailyStats(creds, accountId, 'PROMOTED_TWEET', d.ad_id, start, end)
+      : await campaignDailyStats(creds, accountId, d.campaign_id, start, end)
     let n = 0
     for (const r of rows) {
       if (r.impressions === 0 && r.spend_micro === 0 && r.clicks === 0) continue
@@ -37,7 +40,7 @@ export async function syncAdsApiMetrics(dbIn?: Database.Database): Promise<strin
       })()
       n++
     }
-    notes.push(`ads-api: creative ${d.creative_id} campaign ${d.campaign_id}: ${n} day(s) synced (${start}..${end})`)
+    notes.push(`ads-api: creative ${d.creative_id} ${d.ad_id ? `promoted_tweet ${d.ad_id}` : `campaign ${d.campaign_id}`}: ${n} day(s) synced (${start}..${end})`)
   }
   if (!dbIn) db.close()
   return notes

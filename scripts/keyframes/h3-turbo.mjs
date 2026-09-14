@@ -47,7 +47,7 @@ const parts = []
 for (const s of shots) {
   const p = join(clips, `${s.id}.mp4`)
   const factor = s.durationSec / 5
-  execFileSync('ffmpeg', ['-v', 'error', '-y', '-i', raw(s), '-an', '-vf', `setpts=${factor}*PTS,fps=30,scale=1080:1440:flags=lanczos${s.holdSec ? `,tpad=stop_mode=clone:stop_duration=${s.holdSec}` : ''}`, '-c:v', 'libx264', '-crf', '16', '-pix_fmt', 'yuv420p', p])
+  execFileSync('ffmpeg', ['-v', 'error', '-y', '-i', raw(s), '-an', '-vf', `setpts=${factor}*PTS,fps=30,scale=1080:1350:flags=lanczos${s.holdSec ? `,tpad=stop_mode=clone:stop_duration=${s.holdSec}` : ''}`, '-c:v', 'libx264', '-crf', '16', '-pix_fmt', 'yuv420p', p])
   parts.push(p)
 }
 const list = join(clips, 'list.txt'); writeFileSync(list, parts.map((p) => `file '${p}'`).join('\n'))

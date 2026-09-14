@@ -1,0 +1,2 @@
+{"t":"2026-09-14T13:42:14.490Z","s":"update ad_assets set promoted_tweet_id = ?, approval_status = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') where creative_id = 8","p":["b5h2ym","ACCEPTED"]}
+{"t":"2026-09-14T13:42:14.491Z","s":"update deployments set status = 'active', stopped_at = null, ad_id = ? where creative_id = 8 and id = (select max(id) from deployments where creative_id = 8)","p":["b5h2ym"]}

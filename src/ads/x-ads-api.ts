@@ -129,6 +129,20 @@ export async function campaignDailyStats(
   end: string,
   tzOffset = '+09:00', // Asia/Tokyo (account 18ce55x0rpo)
 ): Promise<DailyStat[]> {
+  return entityDailyStats(creds, accountId, 'CAMPAIGN', campaignId, start, end, tzOffset)
+}
+
+// Per-entity daily stats. Use PROMOTED_TWEET when several ads share one line item, so each
+// deployment gets its own numbers instead of the campaign total.
+export async function entityDailyStats(
+  creds: AdsCreds,
+  accountId: string,
+  entity: 'CAMPAIGN' | 'LINE_ITEM' | 'PROMOTED_TWEET',
+  entityId: string,
+  start: string,
+  end: string,
+  tzOffset = '+09:00',
+): Promise<DailyStat[]> {
   const DAY = 86400_000
   const t0 = new Date(start + 'T00:00:00Z').getTime()
   const t1 = new Date(end + 'T00:00:00Z').getTime()
@@ -139,8 +153,8 @@ export async function campaignDailyStats(
     const r = await adsGet<{
       data: Array<{ id: string; id_data: Array<{ metrics: Record<string, number[] | null> }> }>
     }>(creds, `/stats/accounts/${accountId}`, {
-      entity: 'CAMPAIGN',
-      entity_ids: toApiId(campaignId),
+      entity,
+      entity_ids: entity === 'CAMPAIGN' ? toApiId(entityId) : entityId,
       start_time: `${iso(cs)}T00:00:00${tzOffset}`,
       end_time: `${iso(ce + DAY)}T00:00:00${tzOffset}`,
       granularity: 'DAY',

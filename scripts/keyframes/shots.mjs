@@ -1,4 +1,4 @@
-// Keyframe shot list for the 14s "file → URL → comment → fix, same URL" ad (3:4, 1080x1440).
+// Keyframe shot list for the 14s "file → URL → comment → fix, same URL" ad (4:5, 1080x1350 — X Ads rejects 3:4; allowed: 2:3, 4:5, 191:100, 1:1, 9:16, 16:9).
 // Each shot has a start and end HTML frame; H3 Max Turbo interpolates between them. Brand tokens = LP design system.
 import { readFileSync } from 'node:fs'
 
@@ -9,7 +9,7 @@ const LOGO = 'data:image/png;base64,' + readFileSync('/Users/coji/progs/artifact
 const CSS = `
 ${font(400)}${font(500)}${font(600)}
 *{box-sizing:border-box;margin:0}
-html,body{width:1080px;height:1440px;overflow:hidden;background:#f7f6f3;font-family:Geist,system-ui,sans-serif;color:#37352f}
+html,body{width:1080px;height:1350px;overflow:hidden;background:#f7f6f3;font-family:Geist,system-ui,sans-serif;color:#37352f}
 .pill{position:absolute;top:44px;left:48px;display:flex;align-items:center;gap:12px;background:rgba(255,255,255,.92);border:1px solid rgba(55,53,47,.12);border-radius:999px;padding:10px 18px 10px 12px}
 .pill img{width:28px;height:28px;border-radius:7px}.pill b{font-weight:600;font-size:26px}.pill span{font-size:24px;color:rgba(55,53,47,.7)}
 .h1{font-weight:600;font-size:132px;line-height:1.02;letter-spacing:-.02em}

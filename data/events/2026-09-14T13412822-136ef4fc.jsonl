@@ -1,0 +1,3 @@
+{"t":"2026-09-14T13:41:28.225Z","s":"insert or ignore into ad_assets (creative_id) values (?)","p":[27]}
+{"t":"2026-09-14T13:41:36.496Z","s":"update ad_assets set media_key = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') where creative_id = ?","p":["13_2099493742717870080",27]}
+{"t":"2026-09-14T13:41:36.742Z","s":"update ad_assets set card_uri = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') where creative_id = ?","p":["card://2099493772182822912",27]}

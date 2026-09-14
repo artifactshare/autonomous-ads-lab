@@ -1,0 +1,1 @@
+{"t":"2026-09-14T13:41:27.893Z","s":"update ad_assets set media_key = null, card_uri = null where creative_id = 27","p":[]}

@@ -1,0 +1,2 @@
+{"t":"2026-09-14T13:40:57.356Z","s":"insert or ignore into ad_assets (creative_id) values (?)","p":[27]}
+{"t":"2026-09-14T13:41:06.043Z","s":"update ad_assets set media_key = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') where creative_id = ?","p":["13_2099493613042614272",27]}

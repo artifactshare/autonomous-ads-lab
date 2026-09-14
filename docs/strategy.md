@@ -79,3 +79,8 @@ Ranked 2026-09-14 by the strategist (later the same day: #44 closed — creative
 
 - **2026-09-07 — P4 refuted.** "Clicks convert to landed sessions at a reasonable rate" overturned by the first 5 days of GA4 data: 18 sessions / 115 clicks (9/2–9/6) = 15.7%, vs the pre-registered 30% bar (I1). Whole-flight interpretation (164 clicks incl. 4 pre-sync days) gives 11%; both readings fire the rule. Consequence: CTR demoted to early-kill guard only; the deciding metric is cost per landed session. Code already implemented this ladder (`decide.ts`), verified 9/7 — no code change needed. *(This entry was written 9/7 in PR #106, which never merged; recorded on main 9/14 — see I8.)* **9/14 addendum:** refutation strengthened — w2 landing rate 7.8% (9/116), cumulative 11.7% (27/231), trending down while CTR holds ~1%.
 - 2026-09-14: P5 (keyword targeting) refuted. The experiment optimised creatives for 16 days while the audience premise was wrong; production adopter data (`data/adopter-signals.json`) and an X people search showed a different "who". Rule from now on: answer Who / Message / Action before touching creatives.
+
+### P11 (testing, 2026-09-14): モーショングラフィックス広告は実録より安くセッションを取る
+
+- creative 8 (v1 実録) と creative 27 (キーフレーム + H3 Max Turbo、14 秒、暗い hook「Who reviews it?」→ 文書 → コメント → agent → 数字フリップ → Same URL → CTA) を同じ line item で並走。metrics は promoted_tweet 単位
+- 判定 9/21: リンククリック単価と GA4 セッション (utm_campaign=exp-auto-27 vs exp-auto-8)。27 が勝てば keyframe-motion-ad を既定の制作フローにし、27 系の hook 5 本を strategist が提案する
