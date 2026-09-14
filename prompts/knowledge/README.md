@@ -16,3 +16,4 @@
 | h3max-prompting.md | MiniMax H3/H3 Maxのプロンプト技法・弱点・回避策 | Creative(動画生成プロンプト作成時) |
 | video-ads.md | X動画広告のベストプラクティス + 短尺映像表現技法 | Creative / Evaluator |
 | marketing-strategy.md | パーセプションフロー、デジタル広告マネジメント手法 | Hypothesis / weekly learning |
+| audience.md | 実採用者から逆算した対象像・回避策・伝える一文・当て方 | Strategist(毎週最初に読む) / Hypothesis |

@@ -14,3 +14,8 @@ data/testeval-frames/
 data/experience.db
 data/experience.db-wal
 data/experience.db-shm
+
+# Living report is a build artifact rendered from the DB and uploaded to
+# artifactshare; nothing reads it back from the repo. Tracking it made daily
+# and weekly conflict every time both ran on the same day (see #133).
+data/living-report.html
