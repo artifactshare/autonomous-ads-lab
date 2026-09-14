@@ -7,10 +7,13 @@
 // - Generation = hypothesis LLM (fable, opus fallback via modelFor) proposes
 //   challengers grounded in the knowledge library + our own results; each is
 //   produced and evaluated through the normal budget-guarded pipeline.
-// - Deployment is handled by the ads-lab-bridge repo's morning run: it finds
-//   the undeployed winner in this DB and swaps the ad in Ads Manager via the
-//   logged-in browser (Ads API approval pending). While an evaluated-but-
-//   undeployed challenger exists, no new round starts.
+// - Deployment goes through the X Ads API (src/ads/deploy.ts): the best
+//   evaluated, undeployed challenger that scores at least as well as the
+//   incumbent is uploaded, promoted on the running line item, and the old ad
+//   is paused - in this same daily run. Ties are allowed: an equal-scoring
+//   challenger is still a new hypothesis worth measuring (the old bridge
+//   required a strictly better score and stalled creative 8 for 9 days).
+//   While a challenger is pending and cannot be deployed, no new round starts.
 import { query } from '@anthropic-ai/claude-agent-sdk'
 import type Database from 'better-sqlite3'
 import type { Logger } from '../logging/logger.ts'
@@ -72,7 +75,7 @@ export async function decideAndAct(db: Database.Database, log: Logger): Promise<
     )
     .get(dep.creative_id) as { n: number }
   if (pending.n > 0) {
-    return [`decide: ${pending.n} evaluated challenger(s) await bridge auto-deploy; no new round`]
+    return [`decide: ${pending.n} evaluated challenger(s) pending`, ...(await deployPendingWinner(db, log, dep.creative_id))]
   }
 
   const perf = db
@@ -163,8 +166,8 @@ export function findResumableCreatives(db: Database.Database, deployedId: number
     .all(deployedId) as ResumableCreative[]
 }
 
-function pendingWinnerNotes(db: Database.Database, deployedId: number): string[] {
-  const winner = db
+function pendingWinner(db: Database.Database, deployedId: number): { creativeId: number; overall: number } | undefined {
+  return db
     .prepare(
       `select c.id as creativeId, e.overall_score as overall from creatives c
        join evaluations e on e.creative_id = c.id
@@ -173,8 +176,35 @@ function pendingWinnerNotes(db: Database.Database, deployedId: number): string[]
        order by e.overall_score desc, c.id asc limit 1`,
     )
     .get(deployedId) as { creativeId: number; overall: number } | undefined
+}
+
+function pendingWinnerNotes(db: Database.Database, deployedId: number): string[] {
+  const winner = pendingWinner(db, deployedId)
   if (!winner) return ['no qualified challenger this round; keeping current creative']
-  return [`winner: creative ${winner.creativeId} (${winner.overall}/10) — awaiting bridge auto-deploy (next 06:30 JST run)`]
+  return [`winner: creative ${winner.creativeId} (${winner.overall}/10) — deploys via Ads API on the next daily run`]
+}
+
+// Deploy the pending winner through the Ads API if it scores >= the incumbent.
+// Deployment is a real side effect (spend moves to the new ad), so it is gated
+// on ADS_DEPLOY_APPLY=1 in the environment; without it this only reports.
+export async function deployPendingWinner(db: Database.Database, log: Logger, deployedId: number): Promise<string[]> {
+  const winner = pendingWinner(db, deployedId)
+  if (!winner) return []
+  const incumbent = (db.prepare('select overall_score from evaluations where creative_id = ?').get(deployedId) as { overall_score: number } | undefined)?.overall_score ?? 0
+  if (winner.overall < incumbent) {
+    return [`winner creative ${winner.creativeId} (${winner.overall}/10) scores below incumbent (${incumbent}/10); not deploying, next round will generate`]
+  }
+  if (process.env.ADS_DEPLOY_APPLY !== '1') {
+    return [`winner creative ${winner.creativeId} (${winner.overall}/10 vs incumbent ${incumbent}/10) ready; ADS_DEPLOY_APPLY not set, skipping deploy`]
+  }
+  try {
+    const { deployCreative } = await import('../ads/deploy.ts')
+    const r = await deployCreative(db, winner.creativeId, { apply: true, replaces: deployedId, log: (m) => log.info('ads_deploy', { m }) })
+    return [`deploy creative ${winner.creativeId} (replaces ${deployedId}): ${r.status}`, ...r.notes.map((n) => `  ${n}`)]
+  } catch (err) {
+    log.error('ads_deploy_failed', { creativeId: winner.creativeId, error: String(err).slice(0, 500) })
+    return [`deploy creative ${winner.creativeId} failed: ${String(err).slice(0, 200)}`]
+  }
 }
 
 // A conversions table with no synced rows means the GA4 sync has not delivered

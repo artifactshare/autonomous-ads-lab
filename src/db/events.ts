@@ -94,8 +94,8 @@ export function replayEvents(db: Database.Database, dir: string = EVENTS_DIR): n
 }
 
 /**
- * Wrap a database so every mutating statement is captured. Call
- * `flush()` (done automatically on close()) to persist the run's events.
+ * Wrap a database so every mutating statement is captured and appended to
+ * the run's event file immediately (write-through); close() flushes any rest.
  */
 export function withEventCapture(db: Database.Database, dir: string = EVENTS_DIR): Database.Database {
   const events: DbEvent[] = []
@@ -125,6 +125,9 @@ export function withEventCapture(db: Database.Database, dir: string = EVENTS_DIR
               replayNow = null
             }
             events.push({ t, s: sql, p: args.map((a) => (a === undefined ? null : a)) })
+            // Write-through: external side effects (Ads API entities) must be durable
+            // even if the process dies before close(); a lost event = duplicate ad.
+            flush()
             return result
           }
         }

@@ -1,0 +1,7 @@
+# The journal is append-only: daily, weekly, strategist and harness each add
+# their own timestamped section to journal/YYYY-MM-DD.md, often from checkouts
+# taken before the others merged. A default 3-way merge conflicts on every such
+# pair (content, or add/add when both runs create the day file). union keeps
+# both sections instead of failing, which is exactly the append semantics we
+# want -- and stops weekly PRs from going DIRTY and being discarded (see #133).
+journal/*.md merge=union

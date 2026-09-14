@@ -22,6 +22,16 @@ North-star KPI: cost per first successful share. Until that is measurable, decid
 on **cost per landed session (GA4)**; treat CTR only as a guard against dead
 creatives. See `src/ops/decide.ts`.
 
+## Who / Message / Action (backward chain; the strategist rewrites this weekly)
+
+Updated 2026-09-14 (human + Claude session; source: `data/adopter-signals.json`, `prompts/knowledge/audience.md`).
+
+- **Expected action**: sign up, post the first artifact via CLI or MCP, and get one teammate comment. Not a landing, not a sign-up alone.
+- **Why they act**: they have an agent-written doc *right now* that a teammate must review, and the workaround (Vercel deploy, Notion paste, versions in Slack, read-only Claude Artifacts) hurts. Sign-up happens at the moment of need, so we target people for whom that moment is frequent.
+- **Who**: CTOs / founding engineers of 2–9 person AI-native teams who write design docs, briefs and teardowns with Claude Code / Codex / Cursor and review them together. Evidence: the only non-JP paying team workspace (first post via CLI on day one, 41 posts / 112 versions / 48 comments in 6 weeks). Named X accounts that speak to this: @rauchg, @dan__rosenthal, @akshatag77, @gregisenberg, @crod_ai (see research_observations kind=target_people).
+- **Message**: "any agent, owned by the team, reviewed at one URL that keeps updating" — not "share HTML" (Showly et al. already say that; vendors' own publish buttons cover it).
+- **How to reach**: follower look-alikes of the named accounts (`SIMILAR_TO_FOLLOWERS_OF_USER`) instead of broad AI-coding keywords.
+
 ## Premises (challenge these every week)
 
 | # | Premise | Status | Evidence / why |
@@ -30,7 +40,8 @@ creatives. See `src/ops/decide.ts`.
 | P2 | Pain-first framing ("AI made the file, sharing is still manual") beats feature framing | testing | 9/14: **still a single arm, 16 days in-flight**. Gen-2 challengers (workflow-demo framing, creatives 6–8) evaluated and waiting since 9/5 — deployment blocked 9 days (I6 / #44). The comparison this premise needs has not started |
 | P3 | CTR is a usable early signal at this budget | supported (early-kill guard only) | 9/14: decisive week. w2 CTR held at ~1.08% (116 clicks / 10,736 imp, daily 0.95–1.4%) while daily sessions halved (18→9 WoW). CTR is now fully decoupled from landings in our own data — it moved 2x up from the 0.49% baseline with zero landing improvement. Keep only as the 0.15% dead-creative floor (per I1's fired rule) |
 | P4 | Clicks convert to landed sessions at a reasonable rate | **refuted** (strengthened 9/14) | 9/7: first 5 measured GA4 days (9/2–9/6): 115 clicks → 18 sessions = **15.7%**, vs the pre-registered 30% bar (I1). 9/14: w2 (9/7–9/13) fell to **7.8%** (116 clicks → 9 sessions); cumulative measured 11.7% (231→27). Not only do ~6/7 paid clicks never arrive — the fraction that lands is *shrinking* while CTR holds, consistent with X's optimizer drifting toward tap-happy audiences. See Reversals log |
-| P5 | US/UK/CA/AU English + AI-coding keyword targeting reaches the right people | assumed | 9/14: third consecutive week of zero non-self organic engagement with the ad; the only public reply ever is negative/confused ("makes no fucking sense", message_confusion + ai_trust_concern). Organic product mentions are meanwhile all *Japanese* devs (@techtalkjp, @gemama0…) — the people actually using the product are not in the targeted geo. Worth a targeting hypothesis (I4), not yet a refutation |
+| P5 | US/UK/CA/AU English + AI-coding keyword targeting reaches the right people | refuted (9/14) | 16 ad-days: 30,289 imp, 280 link clicks, landing rate fell 15.7% → 7.8%, 0 sign-ups, one reply ("makes no sense"). Meanwhile production shows the real English adopter is an AI-native small team, not a keyword. Replaced by P8 |
+| P8 | Follower look-alikes of accounts that voice the adopter profile (@rauchg, @dan__rosenthal, @akshatag77, @gregisenberg) reach people closer to the real adopters than keywords | testing (from 9/14 15:26 JST) | Backward chain in the Who/Message/Action section. Test: swap targeting for creative 8, judge on landing rate and 7-day first_share, not CTR |
 | P6 | 5-second AI-generated video (H3 Max, text burned in post) is the right format | assumed | Within-video *style* (absurdist metaphor vs literal workflow demo) is contested by experiment 3, still awaiting deploy. Video-vs-static untested (idea 3). Format spec is now 8s H3 Max Turbo per the 9/3 comparison |
 | P7 | A 7-day generation cycle balances signal vs exploration | assumed | 9/14: unchanged — the binding constraint on cycle time is the **deploy path**, not the 7d rule; the gen-2 winner has now been idle 9 days (I6). Revisit cycle length only after deployment works |
 
@@ -47,7 +58,12 @@ creatives. See `src/ops/decide.ts`.
 
 ## Ideas backlog (not scheduled; the strategist ranks these weekly)
 
-Ranked 2026-09-14:
+Ranked 2026-09-14 (strategist re-ranks weekly):
+
+0. **Swap targeting to follower look-alikes** (attacks P8). What: add `SIMILAR_TO_FOLLOWERS_OF_USER` for the named accounts, remove the 4 broad keywords, keep creative 8. Cost: $0 creative. Days: 7. Success: landing rate ≥ 30% or any first_share within 7 days.
+0b. **Reply to the post that asks for the product** (@akshatag77 thread, needs-human). Cost $0.
+
+Ranked 2026-09-14 by the strategist (later the same day: #44 closed — creative 8 went live via the Ads API and targeting was swapped per P8, so items 1–2 below are done):
 
 1. **Manual deploy of creative 8 by 9/16** (unblocks experiment 3; re-escalated in #44 with the budget deadline). Video `data/creatives/8/final.mp4`, UTM campaign `exp-auto-8`, pause creative 3, record a `deployments` row. Cost: $0 extra. Success: click→session rate and $/session of workflow-demo format measurable over 5 days within September's budget. Readout vs corrected baseline: beat $0.65/session cumulative (and note the incumbent's w2 was $1.13)
 2. **If (1) misses 9/16: pause creative 3** (needs-human, same Ads Manager session). Rationale: 16 days of incumbent data already collected; at $1.13/session and decaying, day 17+ buys almost no new information. Preserves ~$11 ≈ 7 ad-days for experiment 3 whenever deploy works. Cost of waiting instead: ~$1.47/day for data we've already decided against
@@ -59,3 +75,4 @@ Ranked 2026-09-14:
 ## Reversals log
 
 - **2026-09-07 — P4 refuted.** "Clicks convert to landed sessions at a reasonable rate" overturned by the first 5 days of GA4 data: 18 sessions / 115 clicks (9/2–9/6) = 15.7%, vs the pre-registered 30% bar (I1). Whole-flight interpretation (164 clicks incl. 4 pre-sync days) gives 11%; both readings fire the rule. Consequence: CTR demoted to early-kill guard only; the deciding metric is cost per landed session. Code already implemented this ladder (`decide.ts`), verified 9/7 — no code change needed. *(This entry was written 9/7 in PR #106, which never merged; recorded on main 9/14 — see I8.)* **9/14 addendum:** refutation strengthened — w2 landing rate 7.8% (9/116), cumulative 11.7% (27/231), trending down while CTR holds ~1%.
+- 2026-09-14: P5 (keyword targeting) refuted. The experiment optimised creatives for 16 days while the audience premise was wrong; production adopter data (`data/adopter-signals.json`) and an X people search showed a different "who". Rule from now on: answer Who / Message / Action before touching creatives.
