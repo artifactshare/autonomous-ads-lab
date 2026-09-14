@@ -98,7 +98,8 @@ export function toApiId(id: string | number): string {
 }
 
 // Daily stats for one campaign over [start, end] (inclusive, YYYY-MM-DD, account-local days).
-// DAY granularity requires the window to start at midnight in the account timezone.
+// DAY granularity requires the window to start at midnight in the account timezone,
+// and the API caps a window at 7 days, so longer ranges are fetched in 7-day chunks.
 export async function campaignDailyStats(
   creds: AdsCreds,
   accountId: string,
@@ -107,30 +108,35 @@ export async function campaignDailyStats(
   end: string,
   tzOffset = '+09:00', // Asia/Tokyo (account 18ce55x0rpo)
 ): Promise<DailyStat[]> {
-  const endExclusive = new Date(new Date(end + 'T00:00:00Z').getTime() + 86400_000).toISOString().slice(0, 10)
-  const r = await adsGet<{
-    data: Array<{ id: string; id_data: Array<{ metrics: Record<string, number[] | null> }> }>
-  }>(creds, `/stats/accounts/${accountId}`, {
-    entity: 'CAMPAIGN',
-    entity_ids: toApiId(campaignId),
-    start_time: `${start}T00:00:00${tzOffset}`,
-    end_time: `${endExclusive}T00:00:00${tzOffset}`,
-    granularity: 'DAY',
-    metric_groups: 'ENGAGEMENT,BILLING,VIDEO',
-    placement: 'ALL_ON_TWITTER',
-  })
-  const m = r.data[0]?.id_data[0]?.metrics ?? {}
-  const n = m.impressions?.length ?? 0
+  const DAY = 86400_000
+  const t0 = new Date(start + 'T00:00:00Z').getTime()
+  const t1 = new Date(end + 'T00:00:00Z').getTime()
+  const iso = (t: number) => new Date(t).toISOString().slice(0, 10)
   const out: DailyStat[] = []
-  for (let i = 0; i < n; i++) {
-    const date = new Date(new Date(start + 'T00:00:00Z').getTime() + i * 86400_000).toISOString().slice(0, 10)
-    out.push({
-      date,
-      impressions: m.impressions?.[i] ?? 0,
-      clicks: m.link_clicks?.[i] ?? 0,
-      video_views: m.video_total_views?.[i] ?? 0,
-      spend_micro: m.billed_charge_local_micro?.[i] ?? 0,
+  for (let cs = t0; cs <= t1; cs += 7 * DAY) {
+    const ce = Math.min(cs + 6 * DAY, t1) // inclusive chunk end
+    const r = await adsGet<{
+      data: Array<{ id: string; id_data: Array<{ metrics: Record<string, number[] | null> }> }>
+    }>(creds, `/stats/accounts/${accountId}`, {
+      entity: 'CAMPAIGN',
+      entity_ids: toApiId(campaignId),
+      start_time: `${iso(cs)}T00:00:00${tzOffset}`,
+      end_time: `${iso(ce + DAY)}T00:00:00${tzOffset}`,
+      granularity: 'DAY',
+      metric_groups: 'ENGAGEMENT,BILLING,VIDEO',
+      placement: 'ALL_ON_TWITTER',
     })
+    const m = r.data[0]?.id_data[0]?.metrics ?? {}
+    const n = Math.round((ce - cs) / DAY) + 1
+    for (let i = 0; i < n; i++) {
+      out.push({
+        date: iso(cs + i * DAY),
+        impressions: m.impressions?.[i] ?? 0,
+        clicks: m.link_clicks?.[i] ?? 0,
+        video_views: m.video_total_views?.[i] ?? 0,
+        spend_micro: m.billed_charge_local_micro?.[i] ?? 0,
+      })
+    }
   }
   return out
 }
