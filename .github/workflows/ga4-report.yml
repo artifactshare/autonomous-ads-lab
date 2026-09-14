@@ -1,0 +1,33 @@
+name: GA4 Report
+on:
+  workflow_dispatch:
+    inputs:
+      dimensions: { description: 'comma-separated GA4 dimensions', default: 'dateHourMinute,sessionSource,sessionMedium,country' }
+      metrics: { description: 'comma-separated GA4 metrics', default: 'sessions,activeUsers' }
+      start: { description: 'start date (YYYY-MM-DD or today/yesterday)', default: 'today' }
+      end: { description: 'end date', default: 'today' }
+      filter_dim: { description: 'optional dimension to filter on', default: '' }
+      filter_value: { description: 'exact value for filter_dim', default: '' }
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm tsx src/ops/ga4-report.ts
+        env:
+          GA4_PROPERTY_ID: ${{ vars.GA4_PROPERTY_ID }}
+          GA4_SA_KEY_B64: ${{ secrets.GA4_SA_KEY_B64 }}
+          GA4_DIMENSIONS: ${{ inputs.dimensions }}
+          GA4_METRICS: ${{ inputs.metrics }}
+          GA4_START: ${{ inputs.start }}
+          GA4_END: ${{ inputs.end }}
+          GA4_FILTER_DIM: ${{ inputs.filter_dim }}
+          GA4_FILTER_VALUE: ${{ inputs.filter_value }}
