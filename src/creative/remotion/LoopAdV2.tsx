@@ -52,7 +52,7 @@ export const defaultAdV2Props: AdV2Props = {
     { kind: 'beat', beat: { src: 'reveal.mp4', ...BROWSER, from: 2.0, to: 5.0, focus: { x: 960, y: 590, scale: 2.1 }, caption: '3 weeks. Decided.' } },
     { kind: 'beat', beat: { src: 'reveal.mp4', ...BROWSER, from: 7.0, to: 10.0, focus: { x: 1720, y: 330, scale: 2.4 }, clicks: [{ at: 0.0, x: 1701, y: 123 }], caption: 'Thread resolved.' } },
   ],
-  endTagline: 'Share HTML with your team.\nJust tell your AI.',
+  endTagline: 'Share once. Review at one URL.\nAny agent.',
   endUrl: 'artifactshare.com',
   endSeconds: 2.8,
   bed: 'bgm-bed.wav',
@@ -100,9 +100,18 @@ const BeatView: React.FC<{ b: Beat }> = ({ b }) => {
       {(b.clicks ?? []).map((c, i) => <Ring key={i} c={c} b={b} t={t} />)}
       {(b.clicks ?? []).map((c, i) => <Sequence key={'s' + i} from={Math.round(c.at * FPS)} durationInFrames={8} layout="none"><Audio src={staticFile('sfx-click.wav')} /></Sequence>)}
       {b.caption ? <SmallCaption text={b.caption} /> : null}
+      <Wordmark />
     </AbsoluteFill>
   )
 }
+
+const Wordmark: React.FC<{ dark?: boolean }> = ({ dark }) => (
+  <div style={{ position: 'absolute', top: 40, left: 44, display: 'flex', alignItems: 'center', gap: 12, background: dark ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.92)', border: dark ? '1px solid rgba(255,255,255,0.18)' : '1px solid rgba(55,53,47,0.12)', borderRadius: 999, padding: '10px 18px 10px 12px' }}>
+    <div style={{ width: 26, height: 26, borderRadius: 6, background: UI.accent, color: '#fff', fontFamily: 'Geist', fontWeight: 600, fontSize: 15, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>as</div>
+    <div style={{ fontFamily: 'Geist', fontWeight: 600, fontSize: 26, color: dark ? '#fff' : UI.ink }}>Artifact Share</div>
+    <div style={{ fontFamily: 'Geist', fontWeight: 400, fontSize: 24, color: dark ? '#c9d1d9' : UI.muted }}>artifactshare.com</div>
+  </div>
+)
 
 const pop = (frame: number, fps: number) => spring({ frame, fps, config: { damping: 14, stiffness: 160 } })
 
@@ -134,18 +143,20 @@ const TerminalCard: React.FC<{ t: Terminal }> = ({ t }) => {
   return (
     <AbsoluteFill style={{ background: '#1b1a17', padding: '120px 70px', justifyContent: 'center' }}>
       <Audio src={staticFile('sfx-click.wav')} startFrom={0} />
+      <Wordmark dark />
       <div style={{ fontFamily: 'Menlo, monospace', fontSize: 34, color: '#c9b8ff', marginBottom: 36 }}><span style={{ color: '#8b93a7' }}>~/docs % </span>{cmd}<span style={{ opacity: Math.floor(sec * 2) % 2 ? 1 : 0 }}>▍</span></div>
       {t.lines.map((l, i) => {
         const vis = sec >= starts[i]!; const p = pop(Math.max(0, f - Math.round(starts[i]! * fps)), fps)
         return <div key={i} style={{ fontFamily: 'Menlo, monospace', fontSize: 38, lineHeight: 1.5, color: i === 1 ? '#fff' : '#c9d1d9', marginBottom: 22, opacity: vis ? p : 0, transform: `translateY(${(1 - p) * 14}px)`, wordBreak: 'break-word' }}>{l}</div>
       })}
       <div style={{ position: 'absolute', left: 0, right: 0, bottom: 120, textAlign: 'center', fontFamily: 'Geist', fontWeight: 500, fontSize: 52, color: '#fff' }}>Edits the doc. Republishes.</div>
+      <div style={{ position: 'absolute', left: 0, right: 0, bottom: 62, textAlign: 'center', fontFamily: 'Geist', fontWeight: 400, fontSize: 30, color: '#a9a49a' }}>Claude Code · Codex · Cursor · any agent with a CLI</div>
     </AbsoluteFill>
   )
 }
 
 const Hook: React.FC<{ text: string; seconds: number }> = ({ text, seconds }) => {
-  const f = useCurrentFrame(); const { fps } = useVideoConfig(); const p = pop(f, fps)
+  const f = useCurrentFrame(); const { fps } = useVideoConfig(); const p = Math.max(0.85, pop(f, fps))
   const drift = interpolate(f, [0, seconds * fps], [1.0, 1.08])
   return (
     <AbsoluteFill style={{ background: UI.bg, overflow: 'hidden' }}>
@@ -153,10 +164,11 @@ const Hook: React.FC<{ text: string; seconds: number }> = ({ text, seconds }) =>
       <div style={{ position: 'absolute', left: -200, top: -60, width: 1480, height: 833, transform: `scale(${drift})`, transformOrigin: '50% 50%', opacity: 0.45, filter: 'blur(3px)' }}>
         <OffthreadVideo src={staticFile('comment.mp4')} trimBefore={60} muted style={{ width: '100%', height: '100%' }} />
       </div>
-      <div style={{ position: 'absolute', left: 80, right: 80, top: 0, bottom: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ position: 'absolute', left: 80, right: 80, top: 0, bottom: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 28 }}>
         <div style={{ fontFamily: 'Geist', fontWeight: 600, fontSize: 92, lineHeight: 1.12, color: UI.ink, textAlign: 'center', whiteSpace: 'pre-line', opacity: p, transform: `translateY(${(1 - p) * 30}px)`, textShadow: '0 2px 24px rgba(246,247,251,0.9)' }}>{text}</div>
+        <div style={{ fontFamily: 'Geist', fontWeight: 500, fontSize: 40, color: UI.accent, opacity: p, background: 'rgba(255,255,255,0.9)', padding: '8px 18px', borderRadius: UI.radius }}>Review AI-written docs at one URL</div>
       </div>
-      <div style={{ position: 'absolute', top: 48, left: 0, right: 0, textAlign: 'center', fontFamily: 'Geist', fontSize: 30, fontWeight: 600, color: UI.muted, letterSpacing: 1 }}>Artifact Share</div>
+      <Wordmark />
     </AbsoluteFill>
   )
 }
@@ -165,9 +177,10 @@ const EndCard: React.FC<{ tagline: string; url: string }> = ({ tagline, url }) =
   const f = useCurrentFrame(); const { fps } = useVideoConfig(); const p = pop(f, fps); const p2 = pop(Math.max(0, f - 8), fps)
   return (
     <AbsoluteFill style={{ background: UI.bg, alignItems: 'center', justifyContent: 'center' }}>
+      <Wordmark />
       <Audio src={staticFile('sfx-success.wav')} />
       <div style={{ fontFamily: 'Geist', fontWeight: 600, fontSize: 84, color: UI.ink, textAlign: 'center', lineHeight: 1.12, maxWidth: 940, whiteSpace: 'pre-line', opacity: p, transform: `translateY(${(1 - p) * 24}px)` }}>{tagline}</div>
-      <div style={{ fontFamily: 'Geist', fontSize: 56, color: UI.accent, marginTop: 44, opacity: p2 }}>{url}</div>
+      <div style={{ marginTop: 48, opacity: p2, background: UI.accent, color: '#fff', fontFamily: 'Geist', fontWeight: 600, fontSize: 44, padding: '20px 44px', borderRadius: UI.radius }}>Try it free → {url}</div>
     </AbsoluteFill>
   )
 }
