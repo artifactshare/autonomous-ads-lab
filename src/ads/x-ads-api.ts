@@ -63,6 +63,27 @@ export async function adsGet<T = unknown>(creds: AdsCreds, path: string, params:
   return JSON.parse(text) as T
 }
 
+export async function adsPost<T = unknown>(creds: AdsCreds, path: string, params: Record<string, string>): Promise<T> {
+  const url = `${API}${path}`
+  const res = await fetch(`${url}?${new URLSearchParams(params)}`, { method: 'POST', headers: { Authorization: oauthHeader(creds, 'POST', url, params) } })
+  const text = await res.text()
+  if (!res.ok) throw new Error(`Ads API ${res.status} ${path}: ${text.slice(0, 500)}`)
+  return JSON.parse(text) as T
+}
+
+// JSON-body POST (cards). OAuth 1.0a signs query params only; JSON bodies are not part of the base string.
+export async function adsPostJson<T = unknown>(creds: AdsCreds, path: string, body: unknown): Promise<T> {
+  const url = `${API}${path}`
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { Authorization: oauthHeader(creds, 'POST', url, {}), 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  const text = await res.text()
+  if (!res.ok) throw new Error(`Ads API ${res.status} ${path}: ${text.slice(0, 500)}`)
+  return JSON.parse(text) as T
+}
+
 export async function adsPut<T = unknown>(creds: AdsCreds, path: string, params: Record<string, string>): Promise<T> {
   const url = `${API}${path}`
   const res = await fetch(`${url}?${new URLSearchParams(params)}`, { method: 'PUT', headers: { Authorization: oauthHeader(creds, 'PUT', url, params) } })
@@ -143,4 +164,46 @@ export async function campaignDailyStats(
 
 export async function setCampaignStatus(creds: AdsCreds, accountId: string, campaignId: string, status: 'ACTIVE' | 'PAUSED') {
   return adsPut(creds, `/accounts/${accountId}/campaigns/${campaignId}`, { entity_status: status })
+}
+
+export async function setLineItemStatus(creds: AdsCreds, accountId: string, lineItemId: string, status: 'ACTIVE' | 'PAUSED') {
+  return adsPut(creds, `/accounts/${accountId}/line_items/${lineItemId}`, { entity_status: status })
+}
+
+export async function setLineItemDailyBudget(creds: AdsCreds, accountId: string, lineItemId: string, localMicro: number) {
+  return adsPut(creds, `/accounts/${accountId}/line_items/${lineItemId}`, { daily_budget_amount_local_micro: String(localMicro) })
+}
+
+// PUT on promoted_tweets only accepts approval_status=APPEAL_REQUESTED; pausing is
+// DELETE (the entity shows as "Paused" in ads.x.com). Re-activating means creating a
+// new promoted_tweet for the same tweet_id.
+export async function pausePromotedTweet(creds: AdsCreds, accountId: string, promotedTweetId: string) {
+  const url = `${API}/accounts/${accountId}/promoted_tweets/${promotedTweetId}`
+  const res = await fetch(url, { method: 'DELETE', headers: { Authorization: oauthHeader(creds, 'DELETE', url, {}) } })
+  const text = await res.text()
+  if (!res.ok) throw new Error(`Ads API ${res.status} DELETE promoted_tweets/${promotedTweetId}: ${text.slice(0, 500)}`)
+  return JSON.parse(text)
+}
+
+export interface PromotedTweet {
+  id: string
+  line_item_id: string
+  tweet_id: string
+  entity_status: string
+  approval_status: string
+}
+
+export async function listPromotedTweets(creds: AdsCreds, accountId: string, lineItemId?: string): Promise<PromotedTweet[]> {
+  const params: Record<string, string> = { with_deleted: 'false' }
+  if (lineItemId) params.line_item_ids = lineItemId
+  const r = await adsGet<{ data: PromotedTweet[] }>(creds, `/accounts/${accountId}/promoted_tweets`, params)
+  return r.data
+}
+
+export async function fundingInstruments(creds: AdsCreds, accountId: string) {
+  const r = await adsGet<{ data: Array<{ id: string; type: string; currency: string; able_to_fund: boolean; entity_status: string; reasons_not_able_to_fund?: string[] }> }>(
+    creds,
+    `/accounts/${accountId}/funding_instruments`,
+  )
+  return r.data
 }
