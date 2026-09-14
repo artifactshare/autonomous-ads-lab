@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
 import type Database from 'better-sqlite3'
 import { BudgetController } from '../budget/controller.ts'
 import type { Logger } from '../logging/logger.ts'
@@ -240,7 +241,53 @@ For each: @handle, approximate follower count, what they build, one representati
     { xSearch: { fromDate: daysAgo(14), toDate: week.toDate } },
   )
   if (competitors) notes.push(`competitor_moves: ${competitors.slice(0, 300)}`)
+
+  // Reply candidates: posts that ask for the product outright. Evidence 9/14: one
+  // reply from @techtalkjp with a 30s real-loop video was followed 7 minutes later
+  // by a 2-person team signing up and sharing (see docs/strategy.md P9). Replies are
+  // human-posted; this only drafts them into a needs-human issue.
+  notes.push(...(await weeklyReplyCandidates(db, log)))
   return notes
+}
+
+export async function weeklyReplyCandidates(db: Database.Database, log: Logger): Promise<string[]> {
+  const week = lastWeek()
+  const text = await runQuery(
+    db,
+    log,
+    'reply_candidates',
+    `Search X for English posts from the last 7 days where someone is asking for, or complaining about the lack of, a way to share and review AI-agent-generated docs, pages, slides or reports with teammates: e.g. "is there a shared workspace both humans and agents can edit", "how do you share Claude Artifacts with your team", "deploying to Vercel just to show a doc", "Notion doesn't fit agent output". Prefer posts with >50 likes or from founders/CTOs of small teams. Exclude posts that are ads for a product.
+For each of up to 5 posts output a block:
+URL: <post url>
+Author: @handle (followers ~N)
+Ask: <one line, what they want>
+Draft reply (<=240 chars, plain, first person, no hashtags, mention artifactshare.com once): <text>
+If nothing meaningful, say "INSUFFICIENT_DATA".`,
+    { xSearch: week },
+  )
+  if (!text || text.includes('INSUFFICIENT_DATA')) return ['reply_candidates: none this week']
+  const title = `Reply candidates ${week.toDate}: posts asking for the product (human posts the reply)`
+  const body = [
+    'Weekly list of X posts that ask for what Artifact Share does. A human (@techtalkjp) decides and posts; the agent only drafts.',
+    'Check each draft with `printf %s "<text>" | xlen` before posting (280 limit). Attach the 30s loop video when the ask is about reviewing agent output (skill: loop-demo-video).',
+    '',
+    'Evidence for this channel: 2026-09-14 reply → 2-person team signed up and shared within 7 minutes (docs/strategy.md P9). Record outcomes below so P9 can be judged.',
+    '',
+    '---',
+    '',
+    text,
+  ].join('\n')
+  try {
+    if (process.env.GH_TOKEN) {
+      execFileSync('gh', ['issue', 'create', '--title', title, '--label', 'needs-human', '--body', body], { stdio: 'pipe' })
+      log.info('reply_candidates_issue_created', { title })
+      return [`reply_candidates: needs-human issue opened (${title})`]
+    }
+    return [`reply_candidates: ${text.slice(0, 300)}`]
+  } catch (err) {
+    log.error('reply_candidates_issue_failed', { error: String(err).slice(0, 300) })
+    return [`reply_candidates: drafted but issue creation failed: ${String(err).slice(0, 120)}`]
+  }
 }
 
 function daysAgo(n: number): string {
