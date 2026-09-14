@@ -6,6 +6,7 @@ import { openDb } from '../db/index.ts'
 import { Logger } from '../logging/logger.ts'
 import { CreativeRepo } from '../creative/repo.ts'
 import { evaluateLocalVideo } from '../creative/pipeline.ts'
+import { BudgetController } from '../budget/controller.ts'
 
 const arg = (n: string) => { const i = process.argv.indexOf(`--${n}`); return i >= 0 ? process.argv[i + 1] : undefined }
 const video = arg('video'); const hook = arg('hook'); const experimentId = Number(arg('experiment'))
@@ -23,6 +24,11 @@ const dest = `data/creatives/${creativeId}/final.mp4`
 mkdirSync(`data/creatives/${creativeId}`, { recursive: true }); copyFileSync(video, dest)
 const durationSec = Math.round(Number(execFileSync('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', dest], { encoding: 'utf8' })))
 repo.recordSubmission(creativeId, model, `external-${creativeId}`)
-repo.recordGeneration(creativeId, { assetUrl: dest, model, seed: null, settings: { source: video }, costUsd: Number(arg('cost') ?? 0), latencyMs: 0, raw: null })
+const costUsd = Number(arg('cost') ?? 0)
+repo.recordGeneration(creativeId, { assetUrl: dest, model, seed: null, settings: { source: video }, costUsd, latencyMs: 0, raw: null })
+if (costUsd > 0) {
+  const a = new BudgetController(db).authorize({ category: 'creative', amountUsd: costUsd, description: `external generation ${model} for creative ${creativeId}`, runId: log.runId, experimentId, creativeId, idempotencyKey: `gen-creative-${creativeId}` })
+  if (!a.ok) { console.error('budget refused:', a.reason); process.exit(2) }
+}
 const r = await evaluateLocalVideo(db, log.child({ creativeId, experimentId }), creativeId, { ...creative, assetUrl: dest }, dest, durationSec)
 console.log(JSON.stringify(r))
