@@ -19,3 +19,4 @@ data/experience.db-shm
 # artifactshare; nothing reads it back from the repo. Tracking it made daily
 # and weekly conflict every time both ran on the same day (see #133).
 data/living-report.html
+data/creatives/*/final.feed360.mp4

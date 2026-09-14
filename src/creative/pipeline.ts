@@ -179,9 +179,12 @@ async function evaluateCreativeAsset(
     throw new Error(`video evaluation was already authorized for creative ${creativeId}; refusing a duplicate paid call`)
   }
 
+  // The video model judges what a phone scroller sees: a 360px-wide rendition.
+  const feedPath = `${workDir}/final.feed360.mp4`
+  execFileSync('ffmpeg', ['-v', 'error', '-y', '-i', videoPath, '-vf', 'scale=360:-2', '-c:v', 'libx264', '-crf', '23', '-preset', 'veryfast', '-c:a', 'aac', '-b:a', '96k', feedPath])
   let videoResult
   try {
-    videoResult = await videoEvaluator.evaluate(videoPath, creative)
+    videoResult = await videoEvaluator.evaluate(feedPath, creative)
   } catch (err) {
     // Keep the conservative estimate charged: a failed or timed-out request
     // may still have incurred provider cost.
