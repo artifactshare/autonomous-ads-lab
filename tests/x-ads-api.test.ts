@@ -20,3 +20,11 @@ describe('oauthHeader', () => {
     expect(header.startsWith('OAuth ')).toBe(true)
   })
 })
+
+describe('toApiId', () => {
+  it('maps Ads Manager decimal ids to API base36 ids', async () => {
+    const { toApiId } = await import('../src/ads/x-ads-api.ts')
+    expect(toApiId('42298216')).toBe('p6lig')
+    expect(toApiId('p6lig')).toBe('p6lig')
+  })
+})
