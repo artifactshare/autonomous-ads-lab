@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-14T06:37:28.822Z",
+  "generated_at": "2026-09-21T00:19:56.728Z",
   "note": "Sanitized aggregates. segment: owner | client-large | other. No PII.",
   "workspaces": [
     {
@@ -9,38 +9,39 @@
       "name_script": "mixed",
       "created": "2026-05-22",
       "size": "50+",
-      "members": 185,
-      "posters": 46,
-      "posts": 1251,
-      "versions": 4426,
+      "members": 206,
+      "posters": 54,
+      "posts": 1494,
+      "versions": 5208,
       "max_versions_one_doc": 124,
-      "comments": 482,
+      "comments": 499,
       "commenters": 27,
-      "views": 7724,
-      "last_active": "2026-09-14",
+      "views": 9126,
+      "last_active": "2026-09-21",
       "artifact_kinds": {
-        "html_page": 1026,
-        "markdown_page": 191,
-        "static_site": 34
+        "html_page": 1236,
+        "markdown_page": 219,
+        "static_site": 39
       },
       "doc_types": {
-        "report": 129,
-        "other": 1007,
-        "ops_doc": 78,
-        "prototype_demo": 21,
-        "design_doc": 15,
-        "strategy_plan": 1
+        "report": 144,
+        "other": 1214,
+        "ops_doc": 93,
+        "prototype_demo": 24,
+        "design_doc": 17,
+        "strategy_plan": 1,
+        "testing": 1
       },
       "visibility": {
-        "project": 255,
-        "workspace": 831,
-        "private": 165
+        "project": 291,
+        "workspace": 1010,
+        "private": 193
       },
-      "agent_created_posts": 29,
+      "agent_created_posts": 33,
       "first_post_channels": {
         "unknown": 13,
-        "cli": 18,
-        "mcp": 11,
+        "cli": 22,
+        "mcp": 15,
         "web": 6
       }
     },
@@ -53,32 +54,32 @@
       "size": "2-9",
       "members": 2,
       "posters": 1,
-      "posts": 358,
-      "versions": 1984,
+      "posts": 374,
+      "versions": 2072,
       "max_versions_one_doc": 94,
-      "comments": 109,
+      "comments": 110,
       "commenters": 5,
-      "views": 21776,
-      "last_active": "2026-09-14",
+      "views": 23362,
+      "last_active": "2026-09-21",
       "artifact_kinds": {
-        "static_site": 15,
-        "html_page": 95,
-        "markdown_page": 248
+        "static_site": 16,
+        "html_page": 104,
+        "markdown_page": 254
       },
       "doc_types": {
-        "other": 285,
+        "other": 299,
         "report": 10,
-        "design_doc": 33,
+        "design_doc": 34,
         "ops_doc": 15,
-        "prototype_demo": 10,
+        "prototype_demo": 11,
         "testing": 2,
         "strategy_plan": 3
       },
       "visibility": {
-        "workspace": 71,
-        "project": 168,
-        "private": 61,
-        "link": 58
+        "workspace": 73,
+        "project": 171,
+        "private": 70,
+        "link": 60
       },
       "agent_created_posts": 0,
       "first_post_channels": {
@@ -94,15 +95,15 @@
       "size": "2-9",
       "members": 7,
       "posters": 4,
-      "posts": 41,
-      "versions": 112,
+      "posts": 45,
+      "versions": 117,
       "max_versions_one_doc": 14,
       "comments": 48,
       "commenters": 3,
-      "views": 215,
-      "last_active": "2026-09-11",
+      "views": 219,
+      "last_active": "2026-09-15",
       "artifact_kinds": {
-        "html_page": 33,
+        "html_page": 37,
         "markdown_page": 7,
         "static_site": 1
       },
@@ -111,13 +112,13 @@
         "strategy_plan": 5,
         "competitive_analysis": 4,
         "ops_doc": 2,
-        "other": 8,
+        "other": 12,
         "testing": 3,
         "prototype_demo": 3
       },
       "visibility": {
         "private": 9,
-        "workspace": 32
+        "workspace": 36
       },
       "agent_created_posts": 0,
       "first_post_channels": {
@@ -133,34 +134,133 @@
       "created": "2026-06-03",
       "size": "10-49",
       "members": 22,
-      "posters": 4,
-      "posts": 40,
-      "versions": 112,
+      "posters": 5,
+      "posts": 43,
+      "versions": 115,
       "max_versions_one_doc": 9,
       "comments": 22,
       "commenters": 4,
-      "views": 268,
-      "last_active": "2026-09-11",
+      "views": 290,
+      "last_active": "2026-09-18",
       "artifact_kinds": {
-        "html_page": 21,
+        "html_page": 24,
         "markdown_page": 18,
         "static_site": 1
       },
       "doc_types": {
         "report": 3,
-        "ops_doc": 5,
-        "other": 32
+        "ops_doc": 7,
+        "other": 33
       },
       "visibility": {
-        "project": 27,
+        "project": 28,
         "private": 1,
-        "workspace": 12
+        "workspace": 14
       },
       "agent_created_posts": 0,
       "first_post_channels": {
         "unknown": 1,
         "cli": 1,
-        "web": 2
+        "web": 3
+      }
+    },
+    {
+      "segment": "other",
+      "plan": "free",
+      "company_domain": false,
+      "name_script": "en_or_latin",
+      "created": "2026-08-20",
+      "size": "1",
+      "members": 1,
+      "posters": 1,
+      "posts": 10,
+      "versions": 23,
+      "max_versions_one_doc": 14,
+      "comments": 1,
+      "commenters": 1,
+      "views": 2,
+      "last_active": "2026-09-18",
+      "artifact_kinds": {
+        "html_page": 1,
+        "markdown_page": 9
+      },
+      "doc_types": {
+        "design_doc": 1,
+        "other": 3,
+        "testing": 6
+      },
+      "visibility": {
+        "project": 4,
+        "private": 6
+      },
+      "agent_created_posts": 0,
+      "first_post_channels": {
+        "web": 1
+      }
+    },
+    {
+      "segment": "other",
+      "plan": "free",
+      "company_domain": false,
+      "name_script": "en_or_latin",
+      "created": "2026-07-31",
+      "size": "1",
+      "members": 1,
+      "posters": 1,
+      "posts": 9,
+      "versions": 10,
+      "max_versions_one_doc": 2,
+      "comments": 16,
+      "commenters": 1,
+      "views": 19,
+      "last_active": "2026-09-14",
+      "artifact_kinds": {
+        "markdown_page": 7,
+        "html_page": 2
+      },
+      "doc_types": {
+        "other": 7,
+        "ops_doc": 2
+      },
+      "visibility": {
+        "private": 6,
+        "link": 3
+      },
+      "agent_created_posts": 0,
+      "first_post_channels": {
+        "cli": 1
+      }
+    },
+    {
+      "segment": "other",
+      "plan": "free",
+      "company_domain": true,
+      "name_script": "en_or_latin",
+      "created": "2026-08-16",
+      "size": "2-9",
+      "members": 4,
+      "posters": 1,
+      "posts": 9,
+      "versions": 11,
+      "max_versions_one_doc": 2,
+      "comments": 0,
+      "commenters": 0,
+      "views": 31,
+      "last_active": "2026-09-19",
+      "artifact_kinds": {
+        "html_page": 9
+      },
+      "doc_types": {
+        "other": 6,
+        "report": 2,
+        "ops_doc": 1
+      },
+      "visibility": {
+        "workspace": 9
+      },
+      "agent_created_posts": 0,
+      "first_post_channels": {
+        "web": 1
       }
     },
     {
@@ -198,75 +298,41 @@
     {
       "segment": "other",
       "plan": "free",
-      "company_domain": false,
-      "name_script": "en_or_latin",
-      "created": "2026-08-20",
-      "size": "1",
-      "members": 1,
-      "posters": 1,
-      "posts": 8,
-      "versions": 18,
-      "max_versions_one_doc": 11,
-      "comments": 1,
-      "commenters": 1,
-      "views": 2,
-      "last_active": "2026-09-05",
-      "artifact_kinds": {
-        "html_page": 1,
-        "markdown_page": 7
-      },
-      "doc_types": {
-        "design_doc": 1,
-        "other": 3,
-        "testing": 4
-      },
-      "visibility": {
-        "project": 4,
-        "private": 4
-      },
-      "agent_created_posts": 0,
-      "first_post_channels": {
-        "web": 1
-      }
-    },
-    {
-      "segment": "other",
-      "plan": "free",
-      "company_domain": false,
-      "name_script": "en_or_latin",
-      "created": "2026-07-31",
-      "size": "1",
-      "members": 1,
+      "company_domain": true,
+      "name_script": "ja",
+      "created": "2026-07-10",
+      "size": "2-9",
+      "members": 2,
       "posters": 1,
       "posts": 7,
-      "versions": 7,
-      "max_versions_one_doc": 1,
-      "comments": 16,
+      "versions": 10,
+      "max_versions_one_doc": 3,
+      "comments": 1,
       "commenters": 1,
-      "views": 11,
-      "last_active": "2026-09-11",
+      "views": 0,
+      "last_active": "2026-09-20",
       "artifact_kinds": {
-        "markdown_page": 7
+        "markdown_page": 5,
+        "html_page": 2
       },
       "doc_types": {
-        "other": 5,
-        "ops_doc": 2
+        "other": 6,
+        "report": 1
       },
       "visibility": {
-        "private": 6,
-        "link": 1
+        "private": 7
       },
       "agent_created_posts": 0,
       "first_post_channels": {
-        "cli": 1
+        "unknown": 1
       }
     },
     {
       "segment": "other",
       "plan": "free",
       "company_domain": true,
-      "name_script": "en_or_latin",
-      "created": "2026-08-16",
+      "name_script": "ja",
+      "created": "2026-08-18",
       "size": "2-9",
       "members": 3,
       "posters": 1,
@@ -275,53 +341,24 @@
       "max_versions_one_doc": 2,
       "comments": 0,
       "commenters": 0,
-      "views": 22,
-      "last_active": "2026-09-11",
+      "views": 36,
+      "last_active": "2026-09-19",
       "artifact_kinds": {
         "html_page": 7
       },
       "doc_types": {
-        "other": 5,
-        "report": 2
-      },
-      "visibility": {
-        "workspace": 7
-      },
-      "agent_created_posts": 0,
-      "first_post_channels": {
-        "web": 1
-      }
-    },
-    {
-      "segment": "other",
-      "plan": "free",
-      "company_domain": true,
-      "name_script": "ja",
-      "created": "2026-07-10",
-      "size": "2-9",
-      "members": 2,
-      "posters": 1,
-      "posts": 6,
-      "versions": 9,
-      "max_versions_one_doc": 3,
-      "comments": 1,
-      "commenters": 1,
-      "views": 0,
-      "last_active": "2026-09-10",
-      "artifact_kinds": {
-        "markdown_page": 4,
-        "html_page": 2
-      },
-      "doc_types": {
-        "other": 5,
+        "other": 6,
         "report": 1
       },
       "visibility": {
-        "private": 6
+        "project": 3,
+        "workspace": 2,
+        "private": 1,
+        "link": 1
       },
-      "agent_created_posts": 0,
+      "agent_created_posts": 3,
       "first_post_channels": {
-        "unknown": 1
+        "cli": 1
       }
     },
     {
@@ -360,43 +397,10 @@
       "segment": "other",
       "plan": "free",
       "company_domain": true,
-      "name_script": "ja",
-      "created": "2026-08-18",
-      "size": "2-9",
-      "members": 3,
-      "posters": 1,
-      "posts": 6,
-      "versions": 6,
-      "max_versions_one_doc": 1,
-      "comments": 0,
-      "commenters": 0,
-      "views": 10,
-      "last_active": "2026-09-05",
-      "artifact_kinds": {
-        "html_page": 6
-      },
-      "doc_types": {
-        "other": 5,
-        "report": 1
-      },
-      "visibility": {
-        "project": 3,
-        "workspace": 2,
-        "private": 1
-      },
-      "agent_created_posts": 3,
-      "first_post_channels": {
-        "cli": 1
-      }
-    },
-    {
-      "segment": "other",
-      "plan": "free",
-      "company_domain": true,
       "name_script": "en_or_latin",
       "created": "2026-06-11",
       "size": "2-9",
-      "members": 2,
+      "members": 3,
       "posters": 1,
       "posts": 5,
       "versions": 5,
@@ -419,6 +423,39 @@
       "agent_created_posts": 0,
       "first_post_channels": {
         "unknown": 1
+      }
+    },
+    {
+      "segment": "other",
+      "plan": "free",
+      "company_domain": false,
+      "name_script": "ja",
+      "created": "2026-09-08",
+      "size": "1",
+      "members": 1,
+      "posters": 1,
+      "posts": 5,
+      "versions": 6,
+      "max_versions_one_doc": 2,
+      "comments": 0,
+      "commenters": 0,
+      "views": 3,
+      "last_active": "2026-09-16",
+      "artifact_kinds": {
+        "markdown_page": 4,
+        "html_page": 1
+      },
+      "doc_types": {
+        "other": 4,
+        "report": 1
+      },
+      "visibility": {
+        "private": 2,
+        "link": 3
+      },
+      "agent_created_posts": 0,
+      "first_post_channels": {
+        "mcp": 1
       }
     },
     {
@@ -517,6 +554,71 @@
     {
       "segment": "other",
       "plan": "free",
+      "company_domain": true,
+      "name_script": "ja",
+      "created": "2026-09-03",
+      "size": "1",
+      "members": 1,
+      "posters": 1,
+      "posts": 4,
+      "versions": 9,
+      "max_versions_one_doc": 3,
+      "comments": 0,
+      "commenters": 0,
+      "views": 12,
+      "last_active": "2026-09-20",
+      "artifact_kinds": {
+        "html_page": 3,
+        "markdown_page": 1
+      },
+      "doc_types": {
+        "other": 4
+      },
+      "visibility": {
+        "project": 4
+      },
+      "agent_created_posts": 0,
+      "first_post_channels": {
+        "cli": 1
+      }
+    },
+    {
+      "segment": "other",
+      "plan": "free",
+      "company_domain": true,
+      "name_script": "ja",
+      "created": "2026-09-08",
+      "size": "2-9",
+      "members": 3,
+      "posters": 2,
+      "posts": 4,
+      "versions": 9,
+      "max_versions_one_doc": 4,
+      "comments": 8,
+      "commenters": 1,
+      "views": 16,
+      "last_active": "2026-09-17",
+      "artifact_kinds": {
+        "html_page": 3,
+        "static_site": 1
+      },
+      "doc_types": {
+        "other": 2,
+        "ops_doc": 2
+      },
+      "visibility": {
+        "workspace": 1,
+        "project": 3
+      },
+      "agent_created_posts": 3,
+      "first_post_channels": {
+        "cli": 1,
+        "web": 1
+      }
+    },
+    {
+      "segment": "other",
+      "plan": "free",
       "company_domain": false,
       "name_script": "en_or_latin",
       "created": "2026-09-08",
@@ -548,70 +650,6 @@
     {
       "segment": "other",
       "plan": "free",
-      "company_domain": true,
-      "name_script": "ja",
-      "created": "2026-09-08",
-      "size": "2-9",
-      "members": 3,
-      "posters": 2,
-      "posts": 3,
-      "versions": 6,
-      "max_versions_one_doc": 4,
-      "comments": 8,
-      "commenters": 1,
-      "views": 11,
-      "last_active": "2026-09-14",
-      "artifact_kinds": {
-        "html_page": 3
-      },
-      "doc_types": {
-        "other": 2,
-        "ops_doc": 1
-      },
-      "visibility": {
-        "workspace": 1,
-        "project": 2
-      },
-      "agent_created_posts": 2,
-      "first_post_channels": {
-        "cli": 1,
-        "web": 1
-      }
-    },
-    {
-      "segment": "other",
-      "plan": "free",
-      "company_domain": false,
-      "name_script": "ja",
-      "created": "2026-09-08",
-      "size": "1",
-      "members": 1,
-      "posters": 1,
-      "posts": 3,
-      "versions": 4,
-      "max_versions_one_doc": 2,
-      "comments": 0,
-      "commenters": 0,
-      "views": 2,
-      "last_active": "2026-09-10",
-      "artifact_kinds": {
-        "markdown_page": 3
-      },
-      "doc_types": {
-        "other": 3
-      },
-      "visibility": {
-        "private": 1,
-        "link": 2
-      },
-      "agent_created_posts": 0,
-      "first_post_channels": {
-        "mcp": 1
-      }
-    },
-    {
-      "segment": "other",
-      "plan": "free",
       "company_domain": false,
       "name_script": "en_or_latin",
       "created": "2026-06-12",
@@ -637,6 +675,37 @@
       "agent_created_posts": 0,
       "first_post_channels": {
         "unknown": 1
+      }
+    },
+    {
+      "segment": "other",
+      "plan": "free",
+      "company_domain": true,
+      "name_script": "mixed",
+      "created": "2026-06-24",
+      "size": "2-9",
+      "members": 3,
+      "posters": 1,
+      "posts": 2,
+      "versions": 3,
+      "max_versions_one_doc": 2,
+      "comments": 4,
+      "commenters": 1,
+      "views": 14,
+      "last_active": "2026-09-15",
+      "artifact_kinds": {
+        "html_page": 2
+      },
+      "doc_types": {
+        "other": 2
+      },
+      "visibility": {
+        "workspace": 1,
+        "project": 1
+      },
+      "agent_created_posts": 0,
+      "first_post_channels": {
+        "web": 1
       }
     },
     {
@@ -808,8 +877,8 @@
       "max_versions_one_doc": 1,
       "comments": 0,
       "commenters": 0,
-      "views": 9,
-      "last_active": "2026-09-02",
+      "views": 12,
+      "last_active": "2026-09-16",
       "artifact_kinds": {
         "static_site": 2
       },
@@ -859,32 +928,62 @@
     {
       "segment": "other",
       "plan": "free",
-      "company_domain": true,
-      "name_script": "ja",
-      "created": "2026-09-03",
+      "company_domain": false,
+      "name_script": "en_or_latin",
+      "created": "2026-09-16",
       "size": "1",
       "members": 1,
       "posters": 1,
       "posts": 2,
-      "versions": 4,
-      "max_versions_one_doc": 3,
+      "versions": 2,
+      "max_versions_one_doc": 1,
       "comments": 0,
       "commenters": 0,
-      "views": 7,
-      "last_active": "2026-09-10",
+      "views": 14,
+      "last_active": "2026-09-16",
       "artifact_kinds": {
-        "html_page": 1,
-        "markdown_page": 1
+        "html_page": 2
       },
       "doc_types": {
         "other": 2
       },
       "visibility": {
-        "project": 2
+        "link": 2
       },
       "agent_created_posts": 0,
       "first_post_channels": {
-        "cli": 1
+        "web": 1
+      }
+    },
+    {
+      "segment": "other",
+      "plan": "free",
+      "company_domain": false,
+      "name_script": "en_or_latin",
+      "created": "2026-09-19",
+      "size": "1",
+      "members": 1,
+      "posters": 1,
+      "posts": 2,
+      "versions": 2,
+      "max_versions_one_doc": 1,
+      "comments": 0,
+      "commenters": 0,
+      "views": 3,
+      "last_active": "2026-09-19",
+      "artifact_kinds": {
+        "html_page": 2
+      },
+      "doc_types": {
+        "other": 2
+      },
+      "visibility": {
+        "link": 1,
+        "private": 1
+      },
+      "agent_created_posts": 0,
+      "first_post_channels": {
+        "web": 1
       }
     }
   ],
@@ -898,26 +997,26 @@
     {
       "month": "2026-06",
       "signups": 49,
-      "posted": 17,
+      "posted": 18,
       "owner_or_large_client": 18
     },
     {
       "month": "2026-07",
       "signups": 86,
-      "posted": 28,
+      "posted": 30,
       "owner_or_large_client": 55
     },
     {
       "month": "2026-08",
       "signups": 158,
-      "posted": 39,
+      "posted": 45,
       "owner_or_large_client": 64
     },
     {
       "month": "2026-09",
-      "signups": 90,
-      "posted": 15,
-      "owner_or_large_client": 40
+      "signups": 127,
+      "posted": 21,
+      "owner_or_large_client": 61
     }
   ]
 }
