@@ -105,12 +105,25 @@ if (lastWeekly.t && Date.now() - new Date(lastWeekly.t).getTime() > 8 * 86400_00
 const budget = new BudgetController(db).status()
 log.info('budget_status', budget)
 
+// Kill switch: BudgetController only gates agent-initiated spend; media spend
+// accrues on X's side. Pause delivery once the month cannot fit another day.
+const guardNotes: string[] = []
+try {
+  const { enforceMonthlyAdsCap } = await import('./budget-guard.ts')
+  guardNotes.push(...(await enforceMonthlyAdsCap(db, budget.month.ads.spent)))
+  for (const n of guardNotes) log.info('budget_guard', { n })
+} catch (err) {
+  log.error('budget_guard_failed', { error: String(err).slice(0, 500) })
+  guardNotes.push(`⚠️ budget guard failed (delivery may still be live over the monthly cap): ${String(err).slice(0, 200)}`)
+}
+
 const deployments = db
   .prepare("select count(*) as n from deployments where status = 'active'")
   .get() as { n: number }
 
 const done = [
   `budget check: creative $${budget.month.creative.spent.toFixed(2)}/$${budget.month.creative.limit}, ads $${budget.month.ads.spent.toFixed(2)}/$${budget.month.ads.limit} (today $${budget.today.ads.spent.toFixed(2)}/$${budget.today.ads.limit})`,
+  ...guardNotes,
   `${deployments.n} active deployment(s); metrics via ${process.env.X_ADS_ACCESS_TOKEN ? 'X Ads API' : 'bridge scrape (X_ADS_* secrets not set)'}`,
   ...adsApiNotes,
   ...watchdogNotes,
