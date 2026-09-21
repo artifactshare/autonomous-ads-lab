@@ -1,10 +1,16 @@
+import { execFileSync } from 'node:child_process'
+import { copyFileSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { Logger } from '../src/logging/logger.ts'
 import {
+  SALVAGE_MARKER,
   checkStalledPrs,
   describeStalled,
   recoverStalledPrs,
   retryWorkflowFor,
+  salvageBranch,
   selectRecoverable,
   selectStalled,
 } from '../src/ops/stalled-prs.ts'
@@ -108,7 +114,7 @@ describe('DIRTY PR recovery', () => {
       new Logger({ runId: 'r' }, undefined, () => {}),
       NOW,
       () => [pr({ number: 82, headRefName: 'auto/Daily-Ops-old' })],
-      (candidate) => { recovered.push(candidate.number) },
+      (candidate) => { recovered.push(candidate.number); return 'replaced' },
     )
     expect(recovered).toEqual([82])
     expect(lines).toEqual(['watchdog: closed DIRTY PR #82 and dispatched daily.yml'])
@@ -123,6 +129,129 @@ describe('DIRTY PR recovery', () => {
       }),
     ).resolves.toEqual([])
     expect(logged.some((line) => line.includes('stalled_pr_recovery_failed'))).toBe(true)
+  })
+})
+
+describe('salvage before destroy', () => {
+  it('reports a salvaged PR as kept, not replaced', async () => {
+    const lines = await recoverStalledPrs(
+      new Logger({ runId: 'r' }, undefined, () => {}),
+      NOW,
+      () => [pr({ number: 82, headRefName: 'auto/Daily-Ops-old' })],
+      () => 'salvaged',
+    )
+    expect(lines).toEqual(['watchdog: merged main into DIRTY PR #82, keeping its event log'])
+  })
+
+  /** Record the git calls and answer the queries salvageBranch makes. */
+  function fakeGit(over: Record<string, string | (() => never)> = {}) {
+    const calls: string[][] = []
+    const git = (args: string[]): string => {
+      calls.push(args)
+      const key = args[0] ?? ''
+      const canned = over[key]
+      if (typeof canned === 'function') return canned()
+      if (canned !== undefined) return canned
+      switch (key) {
+        case 'rev-parse': return 'false\n'
+        case 'log': return 'Daily Ops: experience db + journal update\n'
+        // Non-zero means main is NOT an ancestor, i.e. the branch is stale.
+        case 'merge-base': throw new Error('not an ancestor')
+        case 'merge-tree': return 'tree123\n'
+        case 'commit-tree': return 'commit456\n'
+        default: return ''
+      }
+    }
+    return { git, calls }
+  }
+
+  const names = (calls: string[][]) => calls.map((c) => c[0])
+
+  it('pushes a merge commit whose first parent is the branch tip', () => {
+    const { git, calls } = fakeGit()
+    expect(salvageBranch('auto/Daily-Ops-old', git)).toBe(true)
+
+    const commitTree = calls.find((c) => c[0] === 'commit-tree')!
+    // First parent = branch tip keeps the push a fast-forward, never a rewrite.
+    expect(commitTree.slice(0, 6)).toEqual([
+      'commit-tree', 'tree123',
+      '-p', 'refs/remotes/origin/auto/Daily-Ops-old',
+      '-p', 'refs/remotes/origin/main',
+    ])
+    expect(calls.at(-1)).toEqual([
+      'push', 'origin', 'commit456:refs/heads/auto/Daily-Ops-old',
+    ])
+    expect(calls.some((c) => c.includes('--force'))).toBe(false)
+  })
+
+  it('fills in history first when the checkout is shallow', () => {
+    const { git, calls } = fakeGit({ 'rev-parse': 'true\n' })
+    salvageBranch('auto/Daily-Ops-old', git)
+    expect(calls[1]).toEqual(['fetch', '--unshallow', '--no-tags', 'origin'])
+  })
+
+  it('gives up on a real conflict without pushing', () => {
+    const { git, calls } = fakeGit({
+      'merge-tree': () => { throw new Error('CONFLICT') },
+    })
+    expect(salvageBranch('auto/Daily-Ops-old', git)).toBe(false)
+    expect(names(calls)).not.toContain('push')
+  })
+
+  it('only tries once per branch, so it cannot livelock', () => {
+    const { git, calls } = fakeGit({ log: `${SALVAGE_MARKER} auto/Daily-Ops-old\n` })
+    expect(salvageBranch('auto/Daily-Ops-old', git)).toBe(false)
+    expect(names(calls)).not.toContain('push')
+  })
+
+  it('does nothing when the branch already contains main', () => {
+    const { git, calls } = fakeGit({ 'merge-base': '' }) // exit 0 = is an ancestor
+    expect(salvageBranch('auto/Daily-Ops-old', git)).toBe(false)
+    expect(names(calls)).not.toContain('push')
+  })
+
+  /**
+   * The point of salvaging is that the #133 conflict shape (daily and weekly
+   * both appending to journal/YYYY-MM-DD.md) resolves without a working tree.
+   * merge-tree must honour the union driver from the repo's .gitattributes,
+   * and the run's event log must survive into the merged tree.
+   */
+  it('resolves the real journal conflict with plumbing only', () => {
+    const repo = mkdtempSync(join(tmpdir(), 'salvage-'))
+    const git = (...args: string[]) =>
+      execFileSync('git', args, { cwd: repo, encoding: 'utf8', stdio: 'pipe' })
+    git('init', '-q', '-b', 'main', '.')
+    git('config', 'user.email', 'test@example.com')
+    git('config', 'user.name', 'test')
+    copyFileSync(join(import.meta.dirname, '..', '.gitattributes'), join(repo, '.gitattributes'))
+    mkdirSync(join(repo, 'journal'), { recursive: true })
+    mkdirSync(join(repo, 'data', 'events'), { recursive: true })
+    git('add', '-A')
+    git('commit', '-qm', 'base')
+
+    // The weekly branch: its journal section plus the event log it paid for.
+    git('checkout', '-qb', 'weekly')
+    writeFileSync(join(repo, 'journal', '2026-09-14.md'), '# 2026-09-14\n\n## 09:08 JST — weekly\n')
+    writeFileSync(join(repo, 'data', 'events', 'weekly.jsonl'), '{"grok":"paid"}\n')
+    git('add', '-A')
+    git('commit', '-qm', 'weekly')
+
+    // main moves on with its own section in the same file: add/add conflict.
+    git('checkout', '-q', 'main')
+    mkdirSync(join(repo, 'journal'), { recursive: true }) // git drops empty dirs
+    writeFileSync(join(repo, 'journal', '2026-09-14.md'), '# 2026-09-14\n\n## 09:07 JST — daily\n')
+    git('add', '-A')
+    git('commit', '-qm', 'daily')
+
+    const tree = git('merge-tree', '--write-tree', 'main', 'weekly').trim()
+    const journal = git('cat-file', '-p', `${tree}:journal/2026-09-14.md`)
+    expect(journal).toContain('## 09:07 JST — daily')
+    expect(journal).toContain('## 09:08 JST — weekly')
+    expect(journal).not.toContain('<<<<<<<')
+    // The irreplaceable part: the paid run's event log is in the merged tree.
+    expect(git('cat-file', '-p', `${tree}:data/events/weekly.jsonl`)).toContain('paid')
+    // And the working tree is untouched, so daily ops can still commit from it.
+    expect(git('status', '--porcelain')).toBe('')
   })
 })
 

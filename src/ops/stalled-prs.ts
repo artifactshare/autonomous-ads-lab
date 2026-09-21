@@ -98,25 +98,119 @@ export function selectRecoverable(
   )
 }
 
-function recoverOne(pr: PrSummary): void {
+/**
+ * Marker on the merge commit the watchdog pushes. Seeing it on the branch tip
+ * means salvage already ran and did not stick, so the next round must fall
+ * through to the destructive path instead of merging forever.
+ */
+export const SALVAGE_MARKER = 'watchdog: merge main into'
+
+export type GitRun = (args: string[]) => string
+
+/**
+ * Git with a committer identity supplied through the environment. The daily
+ * job only runs `git config` in its commit step, which is *after* daily.ts,
+ * so commit-tree would otherwise fail on an empty ident.
+ */
+const runGit: GitRun = (args) =>
+  execFileSync('git', args, {
+    encoding: 'utf8',
+    stdio: 'pipe',
+    env: {
+      ...process.env,
+      GIT_AUTHOR_NAME: 'ads-lab-bot',
+      GIT_AUTHOR_EMAIL: 'actions@github.com',
+      GIT_COMMITTER_NAME: 'ads-lab-bot',
+      GIT_COMMITTER_EMAIL: 'actions@github.com',
+    },
+  })
+
+/**
+ * Clear a branch's conflict by merging current main into it, keeping the PR
+ * (and the event log inside it) alive.
+ *
+ * Uses plumbing only: the daily job commits from this working tree after the
+ * watchdog runs, so checking out another branch here would corrupt it.
+ * `merge-tree --write-tree` honours .gitattributes, so journal/*.md still
+ * merges with the union driver that #135 installed.
+ *
+ * Returns false when there is nothing to salvage or the conflict is real; the
+ * caller then falls back to the existing dispatch-and-close recovery.
+ */
+export function salvageBranch(branch: string, git: GitRun = runGit): boolean {
+  // The daily checkout is shallow (no fetch-depth), so there is no common
+  // ancestor to merge against until the history is filled in.
+  if (git(['rev-parse', '--is-shallow-repository']).trim() === 'true') {
+    git(['fetch', '--unshallow', '--no-tags', 'origin'])
+  }
+  const main = 'refs/remotes/origin/main'
+  const tip = `refs/remotes/origin/${branch}`
+  git([
+    'fetch', '--no-tags', 'origin',
+    `+refs/heads/main:${main}`,
+    `+refs/heads/${branch}:${tip}`,
+  ])
+
+  if (git(['log', '-1', '--format=%s', tip]).trim().startsWith(SALVAGE_MARKER)) return false
+
+  // Already contains main: the conflict is not staleness, so merging is a no-op.
+  try {
+    git(['merge-base', '--is-ancestor', main, tip])
+    return false
+  } catch {
+    // expected: main is ahead of the branch
+  }
+
+  let tree: string
+  try {
+    tree = git(['merge-tree', '--write-tree', main, tip]).trim()
+  } catch {
+    return false // a real content conflict; only a rerun can fix it
+  }
+
+  // Branch tip first so the push is a fast-forward, never a history rewrite.
+  const commit = git([
+    'commit-tree', tree, '-p', tip, '-p', main, '-m', `${SALVAGE_MARKER} ${branch}`,
+  ]).trim()
+  git(['push', 'origin', `${commit}:refs/heads/${branch}`])
+  return true
+}
+
+/** `salvaged`: PR kept, main merged in. `replaced`: PR closed, workflow rerun. */
+export type RecoveryAction = 'salvaged' | 'replaced'
+
+function recoverOne(pr: PrSummary): RecoveryAction {
   const workflow = retryWorkflowFor(pr)
   if (!workflow) throw new Error(`no retry workflow for ${pr.headRefName}`)
+
+  // Closing deletes the branch, and with it that run's data/events/*.jsonl --
+  // the paid research and budget_ledger rows that never reached main (#133).
+  // Merging main in first usually clears the conflict and keeps all of it.
+  // The push lands the CI run in action_required, which the approve step at
+  // the end of this same daily run un-sticks.
+  try {
+    if (salvageBranch(pr.headRefName)) return 'salvaged'
+  } catch {
+    // Salvage is best effort: fall through to the known-good recovery.
+  }
 
   // Dispatch first. If closing fails, an idempotent retry is preferable to
   // closing the only copy and then failing to schedule its replacement.
   execFileSync('gh', ['workflow', 'run', workflow], { stdio: 'pipe' })
   execFileSync('gh', ['pr', 'close', String(pr.number), '--delete-branch'], { stdio: 'pipe' })
+  return 'replaced'
 }
 
 /**
- * Replace DIRTY daily/weekly PRs with a fresh run from current main.
+ * Un-stick DIRTY daily/weekly PRs: merge main into the branch when that is
+ * enough, and only replace the PR with a fresh run when it is not.
  * Never throws: failures remain visible to checkStalledPrs and Slack.
  */
 export async function recoverStalledPrs(
   log: Logger,
   now: Date = new Date(),
   fetch_ = fetchOpenPrs,
-  recover_: (pr: PrSummary) => void | Promise<void> = recoverOne,
+  recover_: (pr: PrSummary) => RecoveryAction | Promise<RecoveryAction> = recoverOne,
 ): Promise<string[]> {
   let recoverable: PrSummary[]
   try {
@@ -130,9 +224,13 @@ export async function recoverStalledPrs(
   for (const pr of recoverable) {
     const workflow = retryWorkflowFor(pr)!
     try {
-      await recover_(pr)
-      log.warn('stalled_pr_recovered', { number: pr.number, workflow })
-      notes.push(`watchdog: closed DIRTY PR #${pr.number} and dispatched ${workflow}`)
+      if ((await recover_(pr)) === 'salvaged') {
+        log.warn('stalled_pr_salvaged', { number: pr.number, branch: pr.headRefName })
+        notes.push(`watchdog: merged main into DIRTY PR #${pr.number}, keeping its event log`)
+      } else {
+        log.warn('stalled_pr_recovered', { number: pr.number, workflow })
+        notes.push(`watchdog: closed DIRTY PR #${pr.number} and dispatched ${workflow}`)
+      }
     } catch (err) {
       log.warn('stalled_pr_recovery_failed', {
         number: pr.number,
