@@ -4,11 +4,11 @@
 
 ## やること（この順で）
 
-1. **状況把握**: `journal/` の直近エントリ、直近の構造化ログ（`pnpm db:init && sqlite3 data/experience.db "select ts, level, event, fields from run_logs order by ts desc limit 50"`。`data/experience.db` はgitignoreされたビルド成果物で、git上の source of truth は `data/events/*.jsonl` のイベントログ。`pnpm db:init` で再生しないと空のDBを掴んで `no such table: run_logs` になる（冪等なので何度実行しても安全）。`logs/*.jsonl` もgitignoreされ自動実行では残らないので当てにしない）、`gh run list --limit 10`（CI/daily/weeklyの失敗）、`gh issue list` を読む。open issueは修正済みでも残っていることがある（`Closes #N` を書いてマージされても自動クローズされない: #136）。トリアージ前に直近マージ済みPRのリンクを突き合わせ、既に直っているものは手動でクローズしてからissue一覧を信用する: `gh pr list --state merged --limit 20 --json number,closingIssuesReferences --jq '.[] | select(.closingIssuesReferences | length > 0) | {pr: .number, issues: [.closingIssuesReferences[].number]}'`
+1. **状況把握**: `journal/` の直近エントリ（`pnpm journal:show YYYY-MM-DD`）、直近の構造化ログ（`pnpm db:init && sqlite3 data/experience.db "select ts, level, event, fields from run_logs order by ts desc limit 50"`。`data/experience.db` はgitignoreされたビルド成果物で、git上の source of truth は `data/events/*.jsonl` のイベントログ。`pnpm db:init` で再生しないと空のDBを掴んで `no such table: run_logs` になる（冪等なので何度実行しても安全）。`logs/*.jsonl` もgitignoreされ自動実行では残らないので当てにしない）、`gh run list --limit 10`（CI/daily/weeklyの失敗）、`gh issue list` を読む。open issueは修正済みでも残っていることがある（`Closes #N` を書いてマージされても自動クローズされない: #136）。トリアージ前に直近マージ済みPRのリンクを突き合わせ、既に直っているものは手動でクローズしてからissue一覧を信用する: `gh pr list --state merged --limit 20 --json number,closingIssuesReferences --jq '.[] | select(.closingIssuesReferences | length > 0) | {pr: .number, issues: [.closingIssuesReferences[].number]}'`
 2. **トリアージ**: 見つけた問題・改善機会を `gh issue create` で起票する（既存issueと重複させない。ラベル: `bug` / `enhancement` / `harness`）。起票だけで終わるものは理由を書く
 3. **改修**: 小さく安全に直せるもの（テスト追加で守れる範囲）は、`fix/` または `improve/` ブランチを切って修正し、`pnpm typecheck && pnpm test` を通してからPRを作る。PR本文には必ず `Closes #<issue番号>` の形式でissueを参照し(マージで自動クローズさせる)、「なぜ安全か」も書く。issueを完全には解決しないPRのときだけ `Refs #N` にする
 4. **auto-merge設定**: 作ったPRに `gh pr merge --auto --squash` を設定（CIグリーンで自動マージされる）
-5. **記録**: 変更内容を `harness_versions` テーブルに記録するmigration的スクリプトは不要。代わりにPR本文とjournalに残す。`journal/YYYY-MM-DD.md` に harness-agent としてのエントリを追記（appendJournalの形式に合わせて手書きでよい）
+5. **記録**: 変更内容を `harness_versions` テーブルに記録するmigration的スクリプトは不要。代わりにPR本文とjournalに残す。`pnpm journal:new "harness-agent"` が出力するファイルに harness-agent としてのエントリを書く（既存の `journal/YYYY-MM-DD.md` には追記しない。同日の他PRと衝突して auto-merge が止まるため）
 
 ## 信頼ポリシー（最重要）
 

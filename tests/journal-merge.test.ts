@@ -1,18 +1,18 @@
 import { execFileSync } from 'node:child_process'
-import { copyFileSync, mkdirSync, mkdtempSync, readFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { appendJournal } from '../src/reporting/journal.ts'
+import { appendJournal, readJournalDay } from '../src/reporting/journal.ts'
 
 /**
- * daily, weekly and the agents each append a section to the same JST-dated
- * journal file, usually from checkouts taken before the others merged. Without
- * a union merge driver every such pair conflicts, the auto PR goes DIRTY, and
- * the watchdog closes it -- discarding that run's work and budget rows (#133).
- *
- * These tests run a real `git merge` against the repo's own .gitattributes, so
- * they fail if that file stops covering journal/*.md.
+ * daily, weekly and the agents each write a journal entry from their own
+ * auto-merge PR, usually from checkouts taken before the others merged.
+ * GitHub's server-side merge ignores .gitattributes merge drivers, so the old
+ * append-to-one-day-file layout conflicted on GitHub even with merge=union
+ * (#168 and #177 stalled five days). Entries now live in separate files, so
+ * these tests merge with plain git and NO attributes: if two same-day entries
+ * ever share a path again, they fail.
  */
 let repo: string
 const git = (...args: string[]) => execFileSync('git', args, { cwd: repo, stdio: 'pipe' })
@@ -27,15 +27,15 @@ const entry = (actor: string, done: string) => ({
 
 const DAILY = new Date('2026-09-14T00:07:00Z') // 09:07 JST
 const WEEKLY = new Date('2026-09-14T00:08:00Z') // 09:08 JST, same JST day
+const journal = () => join(repo, 'journal')
 
 beforeEach(() => {
   repo = mkdtempSync(join(tmpdir(), 'journal-merge-'))
   git('init', '-q', '-b', 'main', '.')
   git('config', 'user.email', 'test@example.com')
   git('config', 'user.name', 'test')
-  // The behaviour under test lives in the repo's real .gitattributes.
-  copyFileSync(join(import.meta.dirname, '..', '.gitattributes'), join(repo, '.gitattributes'))
-  mkdirSync(join(repo, 'journal'), { recursive: true })
+  mkdirSync(journal(), { recursive: true })
+  writeFileSync(join(journal(), '.keep'), '')
   git('add', '-A')
   git('commit', '-qm', 'base')
 })
@@ -44,41 +44,34 @@ beforeEach(() => {
 function commitEntry(branch: string, from: string, e: Parameters<typeof appendJournal>[0], at: Date) {
   git('checkout', '-q', from)
   git('checkout', '-qb', branch)
-  appendJournal(e, at, join(repo, 'journal'))
+  appendJournal(e, at, journal())
   git('add', '-A')
   git('commit', '-qm', branch)
 }
 
-describe('journal union merge', () => {
-  it('keeps both sections when daily and weekly both create the day file', () => {
-    // add/add: neither checkout had journal/2026-09-14.md yet. This is the
-    // exact shape that made PR #130 DIRTY.
+describe('journal entries from parallel PRs', () => {
+  it('merge cleanly without any merge driver when both runs start the day', () => {
     commitEntry('weekly', 'main', entry('weekly-learning (automated)', 'weekly stuff'), WEEKLY)
     commitEntry('daily', 'main', entry('daily-ops (automated)', 'daily stuff'), DAILY)
     git('merge', '--no-edit', 'weekly')
 
-    const merged = readFileSync(join(repo, 'journal', '2026-09-14.md'), 'utf8')
-    expect(merged).toContain('## 09:07 JST — daily-ops (automated)')
-    expect(merged).toContain('## 09:08 JST — weekly-learning (automated)')
-    expect(merged).toContain('- daily stuff')
-    expect(merged).toContain('- weekly stuff')
-    expect(merged).not.toContain('<<<<<<<')
+    const day = readJournalDay('2026-09-14', journal())
+    expect(day).toContain('## 09:07 JST — daily-ops (automated)')
+    expect(day).toContain('## 09:08 JST — weekly-learning (automated)')
+    expect(day).toContain('- daily stuff')
+    expect(day).toContain('- weekly stuff')
   })
 
-  it('keeps both sections when the day file already exists', () => {
-    // content conflict: both sides append after a shared earlier entry.
+  it('merge cleanly when the day already has entries on main', () => {
     commitEntry('seed', 'main', entry('metrics (automated)', 'earlier stuff'), DAILY)
     git('checkout', '-q', 'main')
     git('merge', '--no-edit', 'seed')
 
     commitEntry('weekly', 'main', entry('weekly-learning (automated)', 'weekly stuff'), WEEKLY)
-    commitEntry('daily', 'main', entry('strategist (automated)', 'daily stuff'), DAILY)
+    commitEntry('strategist', 'main', entry('strategist (automated)', 'strategy stuff'), WEEKLY)
     git('merge', '--no-edit', 'weekly')
 
-    const merged = readFileSync(join(repo, 'journal', '2026-09-14.md'), 'utf8')
-    expect(merged).toContain('- earlier stuff')
-    expect(merged).toContain('- daily stuff')
-    expect(merged).toContain('- weekly stuff')
-    expect(merged).not.toContain('<<<<<<<')
+    const day = readJournalDay('2026-09-14', journal())
+    for (const s of ['- earlier stuff', '- weekly stuff', '- strategy stuff']) expect(day).toContain(s)
   })
 })

@@ -25,7 +25,7 @@ Artifact Share に **実際に着地し、登録し、最初の共有に至る�
 
 ## やること（この順で）
 
-1. **読む**: `docs/strategy.md`（前回の自分の判断）、`data/plan.html` の KPI 節、`journal/` 直近 7 日、Experience DB の実績:
+1. **読む**: `docs/strategy.md`（前回の自分の判断）、`data/plan.html` の KPI 節、`journal/` 直近 7 日（`pnpm journal:show YYYY-MM-DD` で 1 日分を通して読める）、Experience DB の実績:
    ```
    sqlite3 data/experience.db "select creative_id, substr(observed_at,1,10) d, impressions, clicks, spend_usd from performance order by d"
    sqlite3 data/experience.db "select * from conversions order by date"
@@ -47,7 +47,7 @@ Artifact Share に **実際に着地し、登録し、最初の共有に至る�
    - 前提が `refuted` になり、コードの判断ルール（`src/ops/decide.ts` の閾値・目的関数・プロンプト、`src/llm/policy.ts`）を変えるべきなら、`improve/` ブランチで小さく直し `pnpm typecheck && pnpm test` を通して PR + `gh pr merge --auto --squash`。PR 本文に「どの前提がどの数字で覆ったか」を書く
    - コードでは解けず人間の設定作業が要るなら `needs-human` ラベルで issue を立て、手順をコマンドで書く
    - 判断保留なら何もしない。ただし `docs/strategy.md` に「なぜ保留か」と「いつ判定するか」を書く
-5. **記録する**: `docs/strategy.md` を更新し、`journal/YYYY-MM-DD.md` に `strategist (automated)` として Done / Learnings / Next を追記。Learnings は「前提の状態変化」を中心に書く。予算消費は失敗分も含めて正直に
+5. **記録する**: `docs/strategy.md` を更新し、`pnpm journal:new "strategist (automated)"` が出力するファイルに Done / Learnings / Next を書く（既存の `journal/YYYY-MM-DD.md` には追記しない）。Learnings は「前提の状態変化」を中心に書く。予算消費は失敗分も含めて正直に
 
 ## 判断基準
 

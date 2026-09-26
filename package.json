@@ -15,7 +15,9 @@
     "creative:footage": "tsx src/ops/creative-footage.ts",
     "keyframes:render": "node scripts/keyframes/render.mjs",
     "creative:external": "tsx src/ops/creative-external.ts",
-    "keyframes:h3": "node scripts/keyframes/h3-turbo.mjs"
+    "keyframes:h3": "node scripts/keyframes/h3-turbo.mjs",
+    "journal:new": "tsx src/ops/journal-new.ts",
+    "journal:show": "tsx src/ops/journal-show.ts"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.3.250",
