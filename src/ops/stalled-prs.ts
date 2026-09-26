@@ -88,14 +88,30 @@ export function retryWorkflowFor(pr: PrSummary): string | null {
   return RETRY_WORKFLOWS.find(({ prefix }) => pr.headRefName.startsWith(prefix))?.workflow ?? null
 }
 
+/**
+ * GitHub's server-side merge ignores the `journal/*.md merge=union` attribute,
+ * so two runs appending to the same day file conflict there even though a
+ * local merge is clean. Such a PR does not report DIRTY: GraphQL leaves
+ * mergeStateStatus at UNKNOWN indefinitely (REST says `dirty`). PRs #168 and
+ * #177 sat like that for five days, taking the weekly research with them.
+ * A long-UNKNOWN auto/ PR therefore gets the non-destructive salvage too.
+ */
+const UNKNOWN_SALVAGE_HOURS = 12
+
 export function selectRecoverable(
   prs: PrSummary[],
   now: Date = new Date(),
   graceHours = 2,
 ): PrSummary[] {
-  return selectStalled(prs, now, graceHours).filter(
-    (pr) => pr.mergeStateStatus === 'DIRTY' && retryWorkflowFor(pr) !== null,
-  )
+  const unknownCutoff = now.getTime() - UNKNOWN_SALVAGE_HOURS * 3600_000
+  return selectStalled(prs, now, graceHours).filter((pr) => {
+    if (pr.mergeStateStatus === 'DIRTY') return retryWorkflowFor(pr) !== null
+    return (
+      pr.mergeStateStatus === 'UNKNOWN' &&
+      pr.headRefName.startsWith('auto/') &&
+      Date.parse(pr.createdAt) < unknownCutoff
+    )
+  })
 }
 
 /**
@@ -176,12 +192,13 @@ export function salvageBranch(branch: string, git: GitRun = runGit): boolean {
   return true
 }
 
-/** `salvaged`: PR kept, main merged in. `replaced`: PR closed, workflow rerun. */
-export type RecoveryAction = 'salvaged' | 'replaced'
+/**
+ * `salvaged`: PR kept, main merged in. `replaced`: PR closed, workflow rerun.
+ * `skipped`: nothing safe to do; the PR stays and checkStalledPrs reports it.
+ */
+export type RecoveryAction = 'salvaged' | 'replaced' | 'skipped'
 
 function recoverOne(pr: PrSummary): RecoveryAction {
-  const workflow = retryWorkflowFor(pr)
-  if (!workflow) throw new Error(`no retry workflow for ${pr.headRefName}`)
 
   // Closing deletes the branch, and with it that run's data/events/*.jsonl --
   // the paid research and budget_ledger rows that never reached main (#133).
@@ -194,6 +211,12 @@ function recoverOne(pr: PrSummary): RecoveryAction {
     // Salvage is best effort: fall through to the known-good recovery.
   }
 
+  // UNKNOWN may just mean GitHub has not computed mergeability yet; closing
+  // on that would discard a healthy PR. Only a confirmed DIRTY is replaced.
+  if (pr.mergeStateStatus !== 'DIRTY') return 'skipped'
+  const workflow = retryWorkflowFor(pr)
+  if (!workflow) throw new Error(`no retry workflow for ${pr.headRefName}`)
+
   // Dispatch first. If closing fails, an idempotent retry is preferable to
   // closing the only copy and then failing to schedule its replacement.
   execFileSync('gh', ['workflow', 'run', workflow], { stdio: 'pipe' })
@@ -202,8 +225,9 @@ function recoverOne(pr: PrSummary): RecoveryAction {
 }
 
 /**
- * Un-stick DIRTY daily/weekly PRs: merge main into the branch when that is
- * enough, and only replace the PR with a fresh run when it is not.
+ * Un-stick DIRTY daily/weekly PRs (and long-UNKNOWN auto/ PRs): merge main
+ * into the branch when that is enough, and only replace a DIRTY PR with a
+ * fresh run when it is not.
  * Never throws: failures remain visible to checkStalledPrs and Slack.
  */
 export async function recoverStalledPrs(
@@ -222,11 +246,14 @@ export async function recoverStalledPrs(
 
   const notes: string[] = []
   for (const pr of recoverable) {
-    const workflow = retryWorkflowFor(pr)!
+    const workflow = retryWorkflowFor(pr)
     try {
-      if ((await recover_(pr)) === 'salvaged') {
+      const action = await recover_(pr)
+      if (action === 'skipped') {
+        log.info('stalled_pr_recovery_skipped', { number: pr.number, state: pr.mergeStateStatus })
+      } else if (action === 'salvaged') {
         log.warn('stalled_pr_salvaged', { number: pr.number, branch: pr.headRefName })
-        notes.push(`watchdog: merged main into DIRTY PR #${pr.number}, keeping its event log`)
+        notes.push(`watchdog: merged main into ${pr.mergeStateStatus} PR #${pr.number}, keeping its event log`)
       } else {
         log.warn('stalled_pr_recovered', { number: pr.number, workflow })
         notes.push(`watchdog: closed DIRTY PR #${pr.number} and dispatched ${workflow}`)
