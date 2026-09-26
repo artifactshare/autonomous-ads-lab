@@ -108,6 +108,26 @@ describe('DIRTY PR recovery', () => {
     expect(selectRecoverable(prs, NOW).map((p) => p.number)).toEqual([1, 2])
   })
 
+  it('also salvages auto/ PRs stuck in UNKNOWN, which is how a server-side journal conflict shows up', () => {
+    const prs = [
+      pr({ number: 168, headRefName: 'auto/Weekly-Learning-old', mergeStateStatus: 'UNKNOWN', createdAt: '2026-08-30T00:00:00Z' }),
+      pr({ number: 177, headRefName: 'auto/harness-journal-old', mergeStateStatus: 'UNKNOWN', createdAt: '2026-08-30T00:00:00Z' }),
+      pr({ number: 3, headRefName: 'auto/Daily-Ops-young', mergeStateStatus: 'UNKNOWN', createdAt: '2026-08-31T06:00:00Z' }),
+      pr({ number: 4, headRefName: 'improve/agent-change', mergeStateStatus: 'UNKNOWN', createdAt: '2026-08-30T00:00:00Z' }),
+    ]
+    expect(selectRecoverable(prs, NOW).map((p) => p.number)).toEqual([168, 177])
+  })
+
+  it('leaves an unsalvageable UNKNOWN PR open instead of closing it', async () => {
+    const lines = await recoverStalledPrs(
+      new Logger({ runId: 'r' }, undefined, () => {}),
+      NOW,
+      () => [pr({ number: 177, headRefName: 'auto/harness-journal-old', mergeStateStatus: 'UNKNOWN', createdAt: '2026-08-30T00:00:00Z' })],
+      () => 'skipped',
+    )
+    expect(lines).toEqual([])
+  })
+
   it('records each successful recovery in the journal output', async () => {
     const recovered: number[] = []
     const lines = await recoverStalledPrs(
