@@ -27,6 +27,16 @@ export async function syncAdsApiMetrics(dbIn?: Database.Database): Promise<strin
   const notes: string[] = []
   for (const d of deployments) {
     // ad_id = promoted_tweet id (Ads API deployments). Older bridge-era rows have none → campaign total.
+    // Campaign totals include every promoted tweet in the campaign, so once any
+    // deployment in the same campaign is tracked at promoted-tweet level, the
+    // fallback would double-count that spend (this inflated Sept 2026 by ~$8.75:
+    // stopped creative 3's campaign rows duplicated creatives 8+27 from 9/15 on).
+    if (!d.ad_id && deployments.some((o) => o.ad_id && o.campaign_id === d.campaign_id)) {
+      notes.push(
+        `ads-api: creative ${d.creative_id} campaign ${d.campaign_id}: skipped (campaign totals would double-count promoted-tweet deployments)`,
+      )
+      continue
+    }
     const rows = d.ad_id
       ? await entityDailyStats(creds, accountId, 'PROMOTED_TWEET', d.ad_id, start, end)
       : await campaignDailyStats(creds, accountId, d.campaign_id, start, end)
