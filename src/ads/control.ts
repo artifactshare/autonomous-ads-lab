@@ -1,6 +1,7 @@
 // Delivery controls over the Ads API: pause/resume the running line item,
 // change its daily budget, and verify the funding instrument can still pay.
 import type Database from 'better-sqlite3'
+import { config } from '../config.ts'
 import { accountIdFromEnv, credsFromEnv, fundingInstruments, setLineItemDailyBudget, setLineItemStatus } from './x-ads-api.ts'
 
 const JPY_PER_USD = Number(process.env.JPY_PER_USD ?? 150)
@@ -12,6 +13,7 @@ function activeLineItem(db: Database.Database): string {
 }
 
 export async function pauseDelivery(db: Database.Database, resume = false): Promise<string> {
+  if (resume && !config.budget.paidMediaEnabled) throw new Error('paid media disabled by owner (config.budget.paidMediaEnabled = false)')
   const creds = credsFromEnv()
   if (!creds) throw new Error('X_ADS_* secrets not set')
   const li = activeLineItem(db)

@@ -52,5 +52,12 @@ jobs:
             console.error('BUDGET GUARD FAILED: dailyAdsCapUsd x 30 exceeds monthlyAdsUsd');
             process.exit(1);
           }
+          // Owner kill switch for paid media (2026-09-26). Only a human
+          // editing this workflow may turn delivery back on.
+          const pm = src.match(/paidMediaEnabled:\s*(true|false)/);
+          if (!pm || pm[1] !== 'false') {
+            console.error('BUDGET GUARD FAILED: paidMediaEnabled expected false got ' + (pm ? pm[1] : 'missing'));
+            process.exit(1);
+          }
           console.log('budget limits verified');
           "

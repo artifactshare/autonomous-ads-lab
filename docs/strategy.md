@@ -21,6 +21,17 @@ running) · `supported` / `refuted` (by our own data; cite the numbers) · `park
 > $29.65 (+~$0.44 unseparable 9/14 partial-day overlap). Found in this review; root
 > cause + monthly-cap kill switch fixed in PR #169. See I10.
 
+> **Owner decision 2026-09-26: paid media is stopped.** Do not deploy, resume or
+> re-budget X ads. `config.budget.paidMediaEnabled = false` enforces this in code and
+> CI pins it, so only a human can turn it back on. Why: at $30/month about 34 people
+> land per month; at the site-wide ~1% sign-up rate the expected result is 0.3
+> sign-ups/month, so this budget cannot answer the Goal either way. September: ~$33
+> real spend, 34 first-time paid users, 0 `sign_up_start`, 0 `sign_up` (#171, GA4
+> sign_up tracking verified: 120 site-wide in September). Meanwhile ~80% of
+> September sign-ups came from people signing in to view an artifact shared with
+> them. The strategist should treat paid-channel ideas as `parked` and put its
+> weekly effort into the owned surfaces (shared-artifact viewers, reply-to-pain).
+
 ## Goal
 
 Find out whether AI-native autonomous ad operations can bring real developers to

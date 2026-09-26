@@ -63,6 +63,7 @@ export async function enforceMonthlyAdsCap(
   db: Database.Database,
   monthSpentUsd: number,
   setStatus: SetStatus = defaultSetStatus,
+  paidMediaEnabled: boolean = config.budget.paidMediaEnabled,
 ): Promise<string[]> {
   const lineItems = (status: string) =>
     (
@@ -79,6 +80,8 @@ export async function enforceMonthlyAdsCap(
       `budget guard: paused line item(s) ${active.join(', ')} — monthly ads $${monthSpentUsd.toFixed(2)} spent leaves no room for another $${config.budget.dailyAdsCapUsd} day under the $${config.budget.monthlyAdsUsd} cap; auto-resumes when a month has room`,
     ]
   }
+  // Owner kill switch: guard-paused rows stay paused until a human re-enables.
+  if (!paidMediaEnabled) return []
   const paused = lineItems('paused')
   if (!paused.length) return []
   for (const li of paused) await setStatus(li, 'ACTIVE')

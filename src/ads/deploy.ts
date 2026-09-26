@@ -7,6 +7,7 @@ import type Database from 'better-sqlite3'
 import { join } from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
+import { config } from '../config.ts'
 import { uploadAmplifyVideo } from './media-upload.ts'
 import {
   accountIdFromEnv,
@@ -52,6 +53,9 @@ export async function deployCreative(
   creativeId: number,
   opts: { apply: boolean; replaces?: number; parallel?: boolean; videoPath?: string; log?: (m: string) => void },
 ): Promise<DeployResult> {
+  if (opts.apply && !config.budget.paidMediaEnabled) {
+    return { status: 'skipped', notes: ['paid media disabled by owner (config.budget.paidMediaEnabled = false)'] }
+  }
   const log = opts.log ?? (() => {})
   const notes: string[] = []
   const creds = credsFromEnv()
