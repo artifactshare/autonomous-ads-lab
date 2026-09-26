@@ -52,7 +52,7 @@ describe('enforceMonthlyAdsCap', () => {
       "insert into deployments (creative_id, status, ad_group_id, campaign_id) values (1, 'paused', 'li1', 'camp1'), (2, 'stopped', 'li0', 'camp0')",
     ).run()
     const { seen, setStatus } = calls()
-    const notes = await enforceMonthlyAdsCap(db, 0, setStatus)
+    const notes = await enforceMonthlyAdsCap(db, 0, setStatus, true)
     expect(seen).toEqual([{ li: 'li1', status: 'ACTIVE' }])
     expect(notes[0]).toContain('resumed line item(s) li1')
     const rows = db.prepare('select creative_id, status from deployments order by creative_id').all()
@@ -60,6 +60,15 @@ describe('enforceMonthlyAdsCap', () => {
       { creative_id: 1, status: 'active' },
       { creative_id: 2, status: 'stopped' },
     ])
+  })
+
+  it('never resumes while the owner has paid media disabled', async () => {
+    const db = setup()
+    db.prepare("insert into deployments (creative_id, status, ad_group_id, campaign_id) values (1, 'paused', 'li1', 'camp1')").run()
+    const { seen, setStatus } = calls()
+    expect(await enforceMonthlyAdsCap(db, 0, setStatus, false)).toEqual([])
+    expect(seen).toEqual([])
+    expect(db.prepare('select status from deployments').get()).toEqual({ status: 'paused' })
   })
 
   it('does nothing when under the cap with nothing guard-paused', async () => {
