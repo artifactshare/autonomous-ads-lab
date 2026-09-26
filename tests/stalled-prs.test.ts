@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { Logger } from '../src/logging/logger.ts'
 import {
+  MAX_SALVAGES,
   SALVAGE_MARKER,
   checkStalledPrs,
   describeStalled,
@@ -218,8 +219,15 @@ describe('salvage before destroy', () => {
     expect(names(calls)).not.toContain('push')
   })
 
-  it('only tries once per branch, so it cannot livelock', () => {
-    const { git, calls } = fakeGit({ log: `${SALVAGE_MARKER} auto/Daily-Ops-old\n` })
+  it('salvages again after main moves, e.g. a sibling journal PR merged first', () => {
+    const { git, calls } = fakeGit({ log: `${SALVAGE_MARKER} auto/harness-journal-old\nharness-agent: journal\n` })
+    expect(salvageBranch('auto/harness-journal-old', git)).toBe(true)
+    expect(names(calls)).toContain('push')
+  })
+
+  it(`stops after ${MAX_SALVAGES} salvages per branch, so it cannot livelock`, () => {
+    const marker = `${SALVAGE_MARKER} auto/Daily-Ops-old\n`
+    const { git, calls } = fakeGit({ log: marker.repeat(MAX_SALVAGES) })
     expect(salvageBranch('auto/Daily-Ops-old', git)).toBe(false)
     expect(names(calls)).not.toContain('push')
   })
