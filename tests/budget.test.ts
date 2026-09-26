@@ -33,13 +33,14 @@ describe('BudgetController', () => {
   })
 
   it('daily cap resets on a new day, monthly total still enforced', () => {
-    let day = 10
-    const bc = setup(() => new Date(`2026-09-${day}T12:00:00Z`))
-    for (let i = 0; i < 20; i++) {
-      bc.authorize({ ...base, category: 'ads', amountUsd: 1.5 })
+    let day = 1
+    const bc = setup(() => new Date(`2026-09-${String(day).padStart(2, '0')}T12:00:00Z`))
+    for (let i = 0; i < 30; i++) {
+      expect(bc.authorize({ ...base, category: 'ads', amountUsd: 1.0 }).ok).toBe(true)
       day++
     }
-    // 20 days x $1.5 = $30 = monthly limit reached
+    day = 30
+    // 30 days x $1 = $30 = monthly limit reached
     const res = bc.authorize({ ...base, category: 'ads', amountUsd: 0.1 })
     expect(res).toMatchObject({ ok: false })
     if (!res.ok) expect(res.reason).toContain('monthly ads budget exceeded')
@@ -109,9 +110,9 @@ describe('BudgetController', () => {
 
   it('reports status', () => {
     const bc = setup()
-    bc.authorize({ ...base, category: 'ads', amountUsd: 1.2 })
+    bc.authorize({ ...base, category: 'ads', amountUsd: 0.8 })
     const s = bc.status()
-    expect(s.month.ads).toEqual({ spent: 1.2, limit: 30 })
-    expect(s.today.ads).toEqual({ spent: 1.2, limit: 1.5 })
+    expect(s.month.ads).toEqual({ spent: 0.8, limit: 30 })
+    expect(s.today.ads).toEqual({ spent: 0.8, limit: 1 })
   })
 })

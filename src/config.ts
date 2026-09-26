@@ -5,7 +5,7 @@ export const config = {
     monthlyCreativeUsd: 10,
     monthlyAdsUsd: 30,
     monthlyAiUsd: 10,
-    dailyAdsCapUsd: 1.5,
+    dailyAdsCapUsd: 1,
   },
 } as const
 

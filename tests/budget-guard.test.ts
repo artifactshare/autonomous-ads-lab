@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { openDb } from '../src/db/index.ts'
-import { adsCapReached, enforceMonthlyAdsCap } from '../src/ops/budget-guard.ts'
+import { adsCapReached, enforceMonthlyAdsCap, syncDailyBudget } from '../src/ops/budget-guard.ts'
 
 function setup() {
   const db = openDb(':memory:')
@@ -26,8 +26,8 @@ function calls() {
 describe('adsCapReached', () => {
   it('fires when another capped day no longer fits the monthly budget', () => {
     expect(adsCapReached(30)).toBe(true)
-    expect(adsCapReached(29.7)).toBe(true) // 29.7 + 1.5 > 30
-    expect(adsCapReached(28.5)).toBe(false) // exactly one day of room left
+    expect(adsCapReached(29.5)).toBe(true) // 29.5 + 1 > 30
+    expect(adsCapReached(29)).toBe(false) // exactly one day of room left
     expect(adsCapReached(0)).toBe(false)
   })
 })
@@ -76,5 +76,23 @@ describe('enforceMonthlyAdsCap', () => {
     const { seen, setStatus } = calls()
     expect(await enforceMonthlyAdsCap(db, 31, setStatus)).toEqual([])
     expect(seen).toEqual([])
+  })
+})
+
+describe('syncDailyBudget', () => {
+  it('pushes the config cap onto live and guard-paused line items that differ', async () => {
+    const db = setup()
+    db.prepare(
+      `insert into deployments (creative_id, status, ad_group_id, campaign_id, budget_usd) values
+       (1, 'paused', 'li1', 'camp1', 1.5), (2, 'stopped', 'li0', 'camp0', 1.5)`,
+    ).run()
+    const seen: Array<{ li: string; usd: number }> = []
+    const notes = await syncDailyBudget(db, async (li, usd) => { seen.push({ li, usd }) })
+    expect(seen).toEqual([{ li: 'li1', usd: 1 }]) // human-stopped rows are left alone
+    expect(notes[0]).toContain('li1 to $1')
+    const rows = db.prepare('select ad_group_id as li, budget_usd from deployments order by id').all()
+    expect(rows).toEqual([{ li: 'li1', budget_usd: 1 }, { li: 'li0', budget_usd: 1.5 }])
+    // Idempotent: the next daily run finds nothing to change.
+    expect(await syncDailyBudget(db, async () => { throw new Error('should not call') })).toEqual([])
   })
 })

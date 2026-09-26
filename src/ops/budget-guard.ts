@@ -13,6 +13,43 @@ export function adsCapReached(monthSpentUsd: number): boolean {
   return monthSpentUsd + config.budget.dailyAdsCapUsd > config.budget.monthlyAdsUsd
 }
 
+/**
+ * The daily cap in config only binds X if the line item carries it: X spends
+ * whatever daily budget the line item has, and that was set once by hand in
+ * Ads Manager. Push the config value onto every live or guard-paused line
+ * item whose recorded budget differs, so changing config is enough.
+ */
+type SetBudget = (lineItemId: string, usd: number) => Promise<void>
+
+async function defaultSetBudget(lineItemId: string, usd: number): Promise<void> {
+  const { accountIdFromEnv, credsFromEnv, setLineItemDailyBudget } = await import('../ads/x-ads-api.ts')
+  const { usdToLocalMicro } = await import('../ads/control.ts')
+  const creds = credsFromEnv()
+  if (!creds) throw new Error('X_ADS_* secrets not set')
+  await setLineItemDailyBudget(creds, accountIdFromEnv(), lineItemId, usdToLocalMicro(usd))
+}
+
+export async function syncDailyBudget(
+  db: Database.Database,
+  setBudget: SetBudget = defaultSetBudget,
+): Promise<string[]> {
+  const cap = config.budget.dailyAdsCapUsd
+  const stale = (
+    db
+      .prepare(
+        `select distinct ad_group_id as li from deployments
+         where status in ('active', 'paused') and ad_group_id is not null
+           and (budget_usd is null or budget_usd != ?)`,
+      )
+      .all(cap) as Array<{ li: string }>
+  ).map((r) => r.li)
+  if (!stale.length) return []
+  for (const li of stale) await setBudget(li, cap)
+  const update = db.prepare("update deployments set budget_usd = ? where ad_group_id = ? and status in ('active', 'paused')")
+  for (const li of stale) update.run(cap, li)
+  return [`budget guard: set daily budget of line item(s) ${stale.join(', ')} to $${cap} (config dailyAdsCapUsd)`]
+}
+
 type SetStatus = (lineItemId: string, status: 'ACTIVE' | 'PAUSED') => Promise<void>
 
 async function defaultSetStatus(lineItemId: string, status: 'ACTIVE' | 'PAUSED'): Promise<void> {
