@@ -36,7 +36,7 @@ jobs:
             monthlyCreativeUsd: 10,
             monthlyAdsUsd: 30,
             monthlyAiUsd: 10,
-            dailyAdsCapUsd: 1.5,
+            dailyAdsCapUsd: 1,
           };
           for (const [k, v] of Object.entries(expect)) {
             const m = src.match(new RegExp(k + String.raw\`:\s*([0-9.]+)\`));
@@ -44,6 +44,13 @@ jobs:
               console.error('BUDGET GUARD FAILED: ' + k + ' expected ' + v + ' got ' + (m ? m[1] : 'missing'));
               process.exit(1);
             }
+          }
+          // A full month of capped days must fit the monthly cap, or the
+          // monthly guard ends up doing the daily cap's job mid-month
+          // (September 2026: \$1.5/day x 30 = \$45 against \$30).
+          if (expect.dailyAdsCapUsd * 30 > expect.monthlyAdsUsd) {
+            console.error('BUDGET GUARD FAILED: dailyAdsCapUsd x 30 exceeds monthlyAdsUsd');
+            process.exit(1);
           }
           console.log('budget limits verified');
           "

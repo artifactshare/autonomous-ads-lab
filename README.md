@@ -28,7 +28,7 @@ This is not an "AI ad generation tool". The goal is a system that learns from re
 monthly_creative_budget_usd = 10
 monthly_ad_budget_usd       = 30
 monthly_ai_budget_usd       = 10
-daily_ad_cap_usd            = 1.5
+daily_ad_cap_usd            = 1
 ```
 
 Every paid action passes through the Budget Controller's `authorize(cost_estimate)` before execution, and estimates are reconciled to actual costs. The limits are additionally pinned in a required CI check (`budget-guard`) that workflow tokens cannot modify — changing them requires a human. That is the project's single human gate.

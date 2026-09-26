@@ -109,7 +109,8 @@ log.info('budget_status', budget)
 // accrues on X's side. Pause delivery once the month cannot fit another day.
 const guardNotes: string[] = []
 try {
-  const { enforceMonthlyAdsCap } = await import('./budget-guard.ts')
+  const { enforceMonthlyAdsCap, syncDailyBudget } = await import('./budget-guard.ts')
+  guardNotes.push(...(await syncDailyBudget(db)))
   guardNotes.push(...(await enforceMonthlyAdsCap(db, budget.month.ads.spent)))
   for (const n of guardNotes) log.info('budget_guard', { n })
 } catch (err) {

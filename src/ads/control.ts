@@ -19,11 +19,16 @@ export async function pauseDelivery(db: Database.Database, resume = false): Prom
   return `line item ${li} ${resume ? 'ACTIVE' : 'PAUSED'}`
 }
 
+/** The ad account bills in JPY; X takes budgets as local-currency micros. */
+export function usdToLocalMicro(usd: number): number {
+  return Math.round(usd * JPY_PER_USD) * 1_000_000
+}
+
 export async function setDailyBudgetUsd(db: Database.Database, usd: number): Promise<string> {
   const creds = credsFromEnv()
   if (!creds) throw new Error('X_ADS_* secrets not set')
   const li = activeLineItem(db)
-  const jpyMicro = Math.round(usd * JPY_PER_USD) * 1_000_000
+  const jpyMicro = usdToLocalMicro(usd)
   await setLineItemDailyBudget(creds, accountIdFromEnv(), li, jpyMicro)
   db.prepare("update deployments set budget_usd = ? where status = 'active' and ad_group_id = ?").run(usd, li)
   return `line item ${li} daily budget ¥${jpyMicro / 1e6} (~$${usd})`
