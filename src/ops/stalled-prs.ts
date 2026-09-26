@@ -115,11 +115,14 @@ export function selectRecoverable(
 }
 
 /**
- * Marker on the merge commit the watchdog pushes. Seeing it on the branch tip
- * means salvage already ran and did not stick, so the next round must fall
- * through to the destructive path instead of merging forever.
+ * Marker on the merge commit the watchdog pushes. Salvage is capped per
+ * branch so a PR it cannot un-stick falls through to the destructive path
+ * instead of merging forever. The cap is not 1: two auto PRs appending to the
+ * same day's journal conflict again as soon as the first one merges (#177
+ * after #168), and that second round is a legitimate salvage.
  */
 export const SALVAGE_MARKER = 'watchdog: merge main into'
+export const MAX_SALVAGES = 3
 
 export type GitRun = (args: string[]) => string
 
@@ -167,7 +170,10 @@ export function salvageBranch(branch: string, git: GitRun = runGit): boolean {
     `+refs/heads/${branch}:${tip}`,
   ])
 
-  if (git(['log', '-1', '--format=%s', tip]).trim().startsWith(SALVAGE_MARKER)) return false
+  const salvages = git(['log', '--format=%s', `${main}..${tip}`])
+    .split('\n')
+    .filter((subject) => subject.startsWith(SALVAGE_MARKER)).length
+  if (salvages >= MAX_SALVAGES) return false
 
   // Already contains main: the conflict is not staleness, so merging is a no-op.
   try {
