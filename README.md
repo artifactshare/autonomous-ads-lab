@@ -46,7 +46,7 @@ Every paid action passes through the Budget Controller's `authorize(cost_estimat
 ## Transparency
 
 - **[Living Report](https://artifactshare.com/a/a68uv6pu0e)** — public, updated in place
-- **[journal/](journal/)** — daily work journal, written by humans and automated jobs alike, failures and costs included
+- **[journal/](journal/)** — daily work journal, written by humans and automated jobs alike, failures and costs included. One file per entry under `journal/YYYY-MM-DD/` (days before 2026-09-26 are single files); `pnpm journal:show YYYY-MM-DD` prints a whole day
 - **[Experience DB event log](data/events)** — every hypothesis, creative (with lineage), evaluation, deployment, spend, and learning, as an append-only event log committed to this repo (the SQLite file is rebuilt from it on every run)
 
 ## Current experiment

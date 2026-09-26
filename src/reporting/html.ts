@@ -2,6 +2,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import type Database from 'better-sqlite3'
 import { config } from '../config.ts'
 import { BudgetController } from '../budget/controller.ts'
+import { journalDays, readJournalDay } from './journal.ts'
 
 const esc = (s: unknown) =>
   String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!)
@@ -53,11 +54,7 @@ function mdToHtml(md: string): string {
 
 function loadJournals(): Record<string, string> {
   const map: Record<string, string> = {}
-  if (!existsSync('journal')) return map
-  for (const f of readdirSync('journal')) {
-    const m = f.match(/^(\d{4}-\d{2}-\d{2})\.md$/)
-    if (m) map[m[1]!] = mdToHtml(readFileSync(`journal/${f}`, 'utf8'))
-  }
+  for (const d of journalDays()) map[d] = mdToHtml(readJournalDay(d))
   return map
 }
 

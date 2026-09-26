@@ -1,7 +1,6 @@
-# The journal is append-only: daily, weekly, strategist and harness each add
-# their own timestamped section to journal/YYYY-MM-DD.md, often from checkouts
-# taken before the others merged. A default 3-way merge conflicts on every such
-# pair (content, or add/add when both runs create the day file). union keeps
-# both sections instead of failing, which is exactly the append semantics we
-# want -- and stops weekly PRs from going DIRTY and being discarded (see #133).
+# Legacy only. Entries used to be appended to journal/YYYY-MM-DD.md by
+# several PRs at once; union kept local merges clean, but GitHub's server-side
+# merge ignores it, so auto-merge stalled anyway (#168, #177). New entries are
+# one file each under journal/YYYY-MM-DD/ and never share a path. Kept so a
+# local merge of an old branch touching a legacy day file still unions.
 journal/*.md merge=union
