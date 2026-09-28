@@ -63,14 +63,26 @@ syncAdsActuals()
 // yesterday's metrics before this job runs. If it didn't, the whole OODA loop
 // is flying blind — alert Slack so the failure is visible even when the
 // bridge's own failure notification could not fire (e.g. runner offline).
+// Zero rows is only news when something was actually delivering: see #194.
 const yesterday = new Date(Date.now() - 86400_000).toISOString().slice(0, 10)
 const fresh = db
   .prepare("select count(*) as n from performance where substr(observed_at,1,10) = ?")
   .get(yesterday) as { n: number }
+// Counted before the budget guard runs below, so a pause applied today does not
+// retroactively excuse a missing metric for a day that did deliver.
+const deliveringBeforeGuard = db
+  .prepare("select count(*) as n from deployments where status = 'active'")
+  .get() as { n: number }
+const { classifyMetrics, describeVerdict } = await import('./metrics-watchdog.ts')
+const metricsVerdict = classifyMetrics({ rows: fresh.n, activeDeployments: deliveringBeforeGuard.n })
 const watchdogNotes: string[] = []
-if (fresh.n === 0) {
+const metricsNote = describeVerdict(metricsVerdict, yesterday)
+if (metricsNote) watchdogNotes.push(metricsNote)
+if (metricsVerdict.kind === 'idle') {
+  log.info('metrics_idle', { missingDate: yesterday, reason: metricsVerdict.reason })
+}
+if (metricsVerdict.kind === 'stale') {
   log.warn('metrics_stale', { missingDate: yesterday })
-  watchdogNotes.push(`watchdog: no metrics for ${yesterday} — Ads API sync failed or nothing served (Slack alerted)`)
   if (process.env.SLACK_WEBHOOK_URL) {
     await fetch(process.env.SLACK_WEBHOOK_URL, {
       method: 'POST',
