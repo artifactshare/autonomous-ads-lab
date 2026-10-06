@@ -9,6 +9,7 @@ import {
   SALVAGE_MARKER,
   checkStalledPrs,
   describeStalled,
+  recoverOne,
   recoverStalledPrs,
   retryWorkflowFor,
   salvageBranch,
@@ -98,25 +99,60 @@ describe('DIRTY PR recovery', () => {
     expect(retryWorkflowFor(pr({ headRefName: 'fix/human-change' }))).toBeNull()
   })
 
-  it('recovers only old DIRTY PRs with a known idempotent workflow', () => {
+  it('recovers every old DIRTY PR on a branch the jobs own, not just rerunnable ones', () => {
     const prs = [
       pr({ number: 1, headRefName: 'auto/Daily-Ops-old', mergeStateStatus: 'DIRTY' }),
       pr({ number: 2, headRefName: 'auto/Weekly-Learning-old', mergeStateStatus: 'DIRTY' }),
       pr({ number: 3, headRefName: 'auto/Daily-Ops-blocked', mergeStateStatus: 'BLOCKED' }),
+      // No retry workflow, but `auto/` is the workflows' own prefix, so the
+      // non-destructive salvage may still run on it.
       pr({ number: 4, headRefName: 'auto/metrics-old', mergeStateStatus: 'DIRTY' }),
       pr({ number: 5, headRefName: 'fix/human-change', mergeStateStatus: 'DIRTY' }),
     ]
-    expect(selectRecoverable(prs, NOW).map((p) => p.number)).toEqual([1, 2])
+    expect(selectRecoverable(prs, NOW).map((p) => p.number)).toEqual([1, 2, 4])
   })
 
-  it('also salvages auto/ PRs stuck in UNKNOWN, which is how a server-side journal conflict shows up', () => {
+  // Regression: #106 (`strategist/2026-09-07-weekly-review`) sat DIRTY from
+  // 2026-09-09 to 09-14 because recovery was gated on RETRY_WORKFLOWS, while
+  // the sibling auto/Weekly-Learning PRs were recovered on each of those days.
+  it('salvages a bot PR on a branch outside every prefix allowlist', () => {
+    const prs = [
+      pr({
+        number: 106,
+        headRefName: 'strategist/2026-09-07-weekly-review',
+        mergeStateStatus: 'DIRTY',
+        author: { login: 'app/github-actions', is_bot: true },
+      }),
+      pr({
+        number: 206,
+        headRefName: 'improve/strategist-2026-10-05-bilingual-discovery',
+        mergeStateStatus: 'DIRTY',
+        author: { login: 'github-actions[bot]' },
+      }),
+    ]
+    expect(selectRecoverable(prs, NOW).map((p) => p.number)).toEqual([106, 206])
+  })
+
+  // Salvage pushes a merge commit onto the branch, so the prefixes humans
+  // also use here must not be enough on their own to earn a write.
+  it('never writes to a human branch, even one using an agent prefix', () => {
+    const prs = [
+      pr({ number: 1, headRefName: 'improve/coji-wip', mergeStateStatus: 'DIRTY', author: { login: 'coji', is_bot: false } }),
+      pr({ number: 2, headRefName: 'fix/coji-wip', mergeStateStatus: 'UNKNOWN', createdAt: '2026-08-30T00:00:00Z', author: { login: 'coji', is_bot: false } }),
+    ]
+    // Still reported -- only the recovery side is authorship-gated.
+    expect(selectStalled(prs, NOW).map((p) => p.number)).toEqual([1, 2])
+    expect(selectRecoverable(prs, NOW)).toEqual([])
+  })
+
+  it('also salvages PRs stuck in UNKNOWN, which is how a server-side journal conflict shows up', () => {
     const prs = [
       pr({ number: 168, headRefName: 'auto/Weekly-Learning-old', mergeStateStatus: 'UNKNOWN', createdAt: '2026-08-30T00:00:00Z' }),
       pr({ number: 177, headRefName: 'auto/harness-journal-old', mergeStateStatus: 'UNKNOWN', createdAt: '2026-08-30T00:00:00Z' }),
       pr({ number: 3, headRefName: 'auto/Daily-Ops-young', mergeStateStatus: 'UNKNOWN', createdAt: '2026-08-31T06:00:00Z' }),
-      pr({ number: 4, headRefName: 'improve/agent-change', mergeStateStatus: 'UNKNOWN', createdAt: '2026-08-30T00:00:00Z' }),
+      pr({ number: 4, headRefName: 'improve/agent-change', mergeStateStatus: 'UNKNOWN', createdAt: '2026-08-30T00:00:00Z', author: { login: 'github-actions[bot]' } }),
     ]
-    expect(selectRecoverable(prs, NOW).map((p) => p.number)).toEqual([168, 177])
+    expect(selectRecoverable(prs, NOW).map((p) => p.number)).toEqual([168, 177, 4])
   })
 
   it('leaves an unsalvageable UNKNOWN PR open instead of closing it', async () => {
@@ -127,6 +163,25 @@ describe('DIRTY PR recovery', () => {
       () => 'skipped',
     )
     expect(lines).toEqual([])
+  })
+
+  it('leaves an unsalvageable PR open rather than closing one it cannot rerun', () => {
+    // merge-tree failing = a real content conflict, so salvage gives up.
+    const git = (args: string[]): string => {
+      if (args[0] === 'merge-tree') throw new Error('CONFLICT')
+      if (args[0] === 'rev-parse') return 'false\n'
+      if (args[0] === 'merge-base') throw new Error('not an ancestor')
+      if (args[0] === 'log') return ''
+      return ''
+    }
+    const strategist = pr({
+      number: 106,
+      headRefName: 'strategist/2026-09-07-weekly-review',
+      mergeStateStatus: 'DIRTY',
+      author: { login: 'app/github-actions', is_bot: true },
+    })
+    // No `gh` call happens: 'skipped' is reached before the close/dispatch.
+    expect(recoverOne(strategist, git)).toBe('skipped')
   })
 
   it('records each successful recovery in the journal output', async () => {

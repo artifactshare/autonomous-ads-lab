@@ -40,9 +40,20 @@ const AUTOMATED_PREFIXES = ['auto/', 'fix/', 'improve/']
 // Kept as a union with the prefixes so a human `fix/` branch still reports.
 const BOT_AUTHORS = new Set(['github-actions[bot]', 'app/github-actions', 'ads-lab-bot'])
 
-function isAutomated(pr: PrSummary): boolean {
+/**
+ * Authorship only. Reporting may over-match (the prefixes above), but anything
+ * that *writes* to a branch must not: `fix/` and `improve/` are also the
+ * convention humans use here, and salvaging pushes a merge commit onto the
+ * branch. Every automated PR goes through GITHUB_TOKEN, so the author is the
+ * one signal an agent cannot get wrong by naming its branch badly.
+ */
+function isBotAuthored(pr: PrSummary): boolean {
   const login = pr.author?.login
-  if (pr.author?.is_bot || (login !== undefined && BOT_AUTHORS.has(login))) return true
+  return pr.author?.is_bot === true || (login !== undefined && BOT_AUTHORS.has(login))
+}
+
+function isAutomated(pr: PrSummary): boolean {
+  if (isBotAuthored(pr)) return true
   return AUTOMATED_PREFIXES.some((p) => pr.headRefName.startsWith(p))
 }
 
@@ -98,6 +109,18 @@ export function retryWorkflowFor(pr: PrSummary): string | null {
  */
 const UNKNOWN_SALVAGE_HOURS = 12
 
+/**
+ * Candidates for `recoverOne`, which tries the non-destructive salvage first
+ * and only then considers closing-and-rerunning.
+ *
+ * Gated on authorship, not on `RETRY_WORKFLOWS`: that allowlist is what makes
+ * the *destructive* path safe (only daily/weekly rebuild their output from
+ * scratch), and using it here locked salvage out of every other bot PR too.
+ * Strategist PR #106 sat DIRTY from 2026-09-09 to 09-14 while the sibling
+ * `auto/Weekly-Learning-*` PRs were recovered on each of those same days --
+ * the only difference was that `strategist/` is not in the allowlist. The
+ * narrowing stays inside `recoverOne`, where closing actually happens.
+ */
 export function selectRecoverable(
   prs: PrSummary[],
   now: Date = new Date(),
@@ -105,12 +128,12 @@ export function selectRecoverable(
 ): PrSummary[] {
   const unknownCutoff = now.getTime() - UNKNOWN_SALVAGE_HOURS * 3600_000
   return selectStalled(prs, now, graceHours).filter((pr) => {
-    if (pr.mergeStateStatus === 'DIRTY') return retryWorkflowFor(pr) !== null
-    return (
-      pr.mergeStateStatus === 'UNKNOWN' &&
-      pr.headRefName.startsWith('auto/') &&
-      Date.parse(pr.createdAt) < unknownCutoff
-    )
+    // `auto/` is reserved for the workflows' own commit steps, so it is safe
+    // to write to even when `author` is missing from the listing.
+    const ours = isBotAuthored(pr) || pr.headRefName.startsWith('auto/')
+    if (!ours) return false
+    if (pr.mergeStateStatus === 'DIRTY') return true
+    return pr.mergeStateStatus === 'UNKNOWN' && Date.parse(pr.createdAt) < unknownCutoff
   })
 }
 
@@ -204,7 +227,7 @@ export function salvageBranch(branch: string, git: GitRun = runGit): boolean {
  */
 export type RecoveryAction = 'salvaged' | 'replaced' | 'skipped'
 
-function recoverOne(pr: PrSummary): RecoveryAction {
+export function recoverOne(pr: PrSummary, git: GitRun = runGit): RecoveryAction {
 
   // Closing deletes the branch, and with it that run's data/events/*.jsonl --
   // the paid research and budget_ledger rows that never reached main (#133).
@@ -212,7 +235,7 @@ function recoverOne(pr: PrSummary): RecoveryAction {
   // The push lands the CI run in action_required, which the approve step at
   // the end of this same daily run un-sticks.
   try {
-    if (salvageBranch(pr.headRefName)) return 'salvaged'
+    if (salvageBranch(pr.headRefName, git)) return 'salvaged'
   } catch {
     // Salvage is best effort: fall through to the known-good recovery.
   }
@@ -220,8 +243,12 @@ function recoverOne(pr: PrSummary): RecoveryAction {
   // UNKNOWN may just mean GitHub has not computed mergeability yet; closing
   // on that would discard a healthy PR. Only a confirmed DIRTY is replaced.
   if (pr.mergeStateStatus !== 'DIRTY') return 'skipped'
+
+  // Closing is only safe for a job that rebuilds its whole output from main.
+  // A strategist or harness PR carries reasoning that no rerun reproduces, so
+  // an unsalvageable one stays open and keeps showing up in checkStalledPrs.
   const workflow = retryWorkflowFor(pr)
-  if (!workflow) throw new Error(`no retry workflow for ${pr.headRefName}`)
+  if (!workflow) return 'skipped'
 
   // Dispatch first. If closing fails, an idempotent retry is preferable to
   // closing the only copy and then failing to schedule its replacement.
