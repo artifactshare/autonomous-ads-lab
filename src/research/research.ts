@@ -227,7 +227,7 @@ Then output ONLY a JSON array (no fences) of at most 3 techniques: [{"name": "..
     log,
     'target_people',
     `Our product (Artifact Share) is adopted by teams like this: ${profile}
-Find English-language X accounts who match that profile or speak to it: founders / CTOs / founding engineers of small AI-native teams who generate design docs, briefs, teardowns or reports WITH coding agents (Claude Code, Codex, Cursor) and review them with teammates; and people complaining about sharing/reviewing agent output (Claude Artifacts sharing limits, Vercel-just-to-share-a-doc, versions in Slack, Notion not fitting agents). Last 14 days.
+Find X accounts posting in English or Japanese who match that profile or speak to it: founders / CTOs / founding engineers of small AI-native teams who generate design docs, briefs, teardowns or reports WITH coding agents (Claude Code, Codex, Cursor) and review them with teammates; and people complaining about sharing/reviewing agent output (Claude Artifacts sharing limits, Vercel-just-to-share-a-doc, versions in Slack, Notion not fitting agents, AIが作った成果物の共有・レビューのつらさ). Last 14 days.
 For each: @handle, approximate follower count, what they build, one representative quote with engagement numbers. Rank by follower count. Mark which ones ask for the product outright. If nothing meaningful, say "INSUFFICIENT_DATA".`,
     { xSearch: { fromDate: daysAgo(14), toDate: week.toDate } },
   )
@@ -256,12 +256,12 @@ export async function weeklyReplyCandidates(db: Database.Database, log: Logger):
     db,
     log,
     'reply_candidates',
-    `Search X for English posts from the last 7 days where someone is asking for, or complaining about the lack of, a way to share and review AI-agent-generated docs, pages, slides or reports with teammates: e.g. "is there a shared workspace both humans and agents can edit", "how do you share Claude Artifacts with your team", "deploying to Vercel just to show a doc", "Notion doesn't fit agent output". Prefer posts with >50 likes or from founders/CTOs of small teams. Exclude posts that are ads for a product.
+    `Search X for posts from the last 7 days, in English or Japanese, where someone is asking for, or complaining about the lack of, a way to share and review AI-agent-generated docs, pages, slides or reports with teammates: e.g. "is there a shared workspace both humans and agents can edit", "how do you share Claude Artifacts with your team", "deploying to Vercel just to show a doc", "Notion doesn't fit agent output", 「Claude Codeに作らせたHTMLをチームでレビューしたい」「AIの成果物の共有が面倒」「Artifactsをチームで見られない」. Prefer posts with >50 likes or from founders/CTOs of small teams; for Japanese posts a lower bar (>10 likes) is fine — the pool is smaller and the account that posts replies (@techtalkjp) is Japanese. Exclude posts that are ads for a product.
 For each of up to 5 posts output a block:
 URL: <post url>
 Author: @handle (followers ~N)
 Ask: <one line, what they want>
-Draft reply (<=240 chars, plain, first person, no hashtags, mention artifactshare.com once): <text>
+Draft reply (<=240 chars, plain, first person, in the same language as the post, no hashtags, mention artifactshare.com once): <text>
 If nothing meaningful, say "INSUFFICIENT_DATA".`,
     { xSearch: week },
   )
