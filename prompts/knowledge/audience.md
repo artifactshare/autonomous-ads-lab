@@ -24,6 +24,13 @@
 - いま最も活動している外部は日本語圏: 22 人 workspace が 1 週間で 43→60 posts、posters 5→6(10/5 も活動)。9/24 作成の日本語ソロは 11 日で 16 posts、link 共有経由で**外部 3 人から 14 コメント**獲得 — 外部で north-star(共有→他者コメント)に最も近い行動
 - 含意: owned surfaces(@techtalkjp は日本語アカウント、9/15 オーガニック投稿 5,247 views)で届くのは日本語圏。discovery 検索(target_people / reply_candidates)を 10/5 に英日バイリンガル化した(docs/strategy.md P13)。英語圏 CTO 像は維持しつつ、日本語の AI-native 小チーム像を並走させる
 
+## 2026-10-12 更新: 英語圏手本 workspace の証拠弱化が確定、日本語ソロの新着が継続(confidence: medium、一次データ)
+
+- 英語圏 2〜9 人チーム(手本 workspace)は **20 日沈黙**(last_active 9/22、45 posts / 48 comments 不変)。9/28 事前登録の「14 日以上で証拠弱化」を越えた。像は消さないが、2026-10-12 時点で一次データの裏づけがある像は日本語圏側に寄っている
+- 新着の日本語ソロ 2 件がこの週に出現、どちらも**高イテレーション型**(10/5 作成: 3 posts / 38 versions / 105 views、CLI 初投稿。10/6 作成: 2 posts / 87 versions、1 文書に 59 版 / 115 views、MCP 初投稿)。「エージェントが回し、人が同じ URL で見る」という製品の芯の使い方そのもの
+- 一方 23 人の日本語 workspace は停滞(60→61 posts / 週)。9/24 作成の日本語ソロは引き続き外部で唯一 link 共有→外部コメントが回っている(12 comments / 3 人、10/12 活動中)
+- 注意: バイリンガル検索の初回(10/12)は ja 候補ゼロ。ただし陽性対照の competitor_moves も 2 週連続空で、検索ツール側の問題の疑いが濃い(strategy.md I12)。この節の像の更新は adopter-signals(一次データ)のみに基づく
+
 ## その人たちが今やっている回避策と、それが嫌な理由(2026-09-14、confidence: medium、X 観測)
 
 - 「research/ フォルダ + AGENTS.md、共有したければ agent に HTML レポートを作らせて Vercel にデプロイ」(@rauchg、1.2k likes)
