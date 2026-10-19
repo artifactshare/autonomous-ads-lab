@@ -44,7 +44,14 @@ async function runQuery(
       if (rec.ok) log.info('budget_reconciled', { kind, ledgerId: auth.ledgerId, actualUsd: r.costUsd, deltaUsd: rec.deltaUsd })
       else log.warn('budget_reconcile_failed', { kind, ledgerId: auth.ledgerId, reason: rec.reason })
     }
-    log.info('research_observation', { kind, toolCalls: r.toolCalls, costUsd: r.costUsd })
+    // attempts > 1 means a transient 429/5xx was retried (#231). Surfaced so a
+    // query that only succeeds on retry is visible instead of silently slow.
+    log.info('research_observation', {
+      kind,
+      toolCalls: r.toolCalls,
+      costUsd: r.costUsd,
+      ...(r.attempts > 1 ? { attempts: r.attempts } : {}),
+    })
     return r.text
   } catch (err) {
     // Deliberately leave the estimate charged: a failure may still have cost
