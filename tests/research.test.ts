@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { openDb } from '../src/db/index.ts'
 import { ResearchRepo } from '../src/research/repo.ts'
-import { recordTechniques } from '../src/research/research.ts'
+import { recordTechniques, researchVerdict } from '../src/research/research.ts'
 
 function setup() {
   const repo = new ResearchRepo(openDb(':memory:'))
@@ -14,6 +14,27 @@ const technique = (name: string) => ({
   hypothesis: 'if we do X, CTR improves because Y',
   implementation_hint: 'h',
   source: '@someone',
+})
+
+describe('researchVerdict', () => {
+  it('trusts a trailing VERDICT line', () => {
+    expect(researchVerdict('1. @someone asked for exactly this.\nVERDICT: FOUND')).toBe('found')
+    expect(researchVerdict('Nothing matched the criteria.\nVERDICT: NONE')).toBe('none')
+  })
+
+  it('is not fooled by a leading INSUFFICIENT_DATA label above real findings', () => {
+    // The 10/19 label-collapse case: label first, findings below (strategy.md I12).
+    expect(researchVerdict('**INSUFFICIENT_DATA**\n1. Showly tutorial series by @someone...\nVERDICT: FOUND')).toBe('found')
+  })
+
+  it('uses the last verdict when several appear', () => {
+    expect(researchVerdict('VERDICT: NONE for query 1.\nBut query 2 matched:\nVERDICT: FOUND')).toBe('found')
+  })
+
+  it('falls back to the legacy whole-text label when no verdict line exists', () => {
+    expect(researchVerdict('**INSUFFICIENT_DATA**')).toBe('none')
+    expect(researchVerdict('Here are 3 accounts: @a, @b, @c')).toBe('found')
+  })
 })
 
 describe('recordTechniques', () => {

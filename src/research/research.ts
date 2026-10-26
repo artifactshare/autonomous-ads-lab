@@ -193,6 +193,21 @@ export function recordTechniques(repo: ResearchRepo, text: string): number {
   return recorded
 }
 
+// Discovery prompts used to end with 'If nothing meaningful, say "INSUFFICIENT_DATA"'.
+// On 10/19 Grok led with that label and then listed real competitor findings below
+// it, so substring checks and 300-char journal slices showed a blank week that
+// wasn't one (docs/strategy.md I12, "label collapse"). The verdict now goes on the
+// LAST line, after the findings.
+const VERDICT_RULE =
+  'List concrete findings first. Then end your reply with exactly one final line: "VERDICT: FOUND" if you listed at least one concrete finding above, or "VERDICT: NONE" if nothing meaningful. Do not write the verdict anywhere else.'
+
+/** Read the trailing verdict line; fall back to the legacy whole-text label. */
+export function researchVerdict(text: string): 'found' | 'none' {
+  const last = [...text.matchAll(/VERDICT:\s*(FOUND|NONE)/gi)].at(-1)?.[1]
+  if (last) return last.toUpperCase() === 'FOUND' ? 'found' : 'none'
+  return text.includes('INSUFFICIENT_DATA') ? 'none' : 'found'
+}
+
 /** Weekly: pain points + ad trends -> candidate techniques (evidence-gated). */
 export async function weeklyResearch(db: Database.Database, log: Logger): Promise<string[]> {
   const week = lastWeek()
@@ -204,10 +219,10 @@ export async function weeklyResearch(db: Database.Database, log: Logger): Promis
     log,
     'pain_points',
     `Search X for posts from developers using AI coding agents (Claude Code, Cursor, Codex, Copilot) complaining about SHARING their AI-generated output: sending HTML files, screenshots of artifacts, "final_v2" style re-uploads, pasting code for feedback, updating shared files. Last 7 days.
-Report the 3-5 most concrete pain expressions with short quotes and what triggered them. If nothing meaningful, say "INSUFFICIENT_DATA".`,
+Report the 3-5 most concrete pain expressions with short quotes and what triggered them. ${VERDICT_RULE}`,
     { xSearch: week },
   )
-  if (pain) notes.push(`pain_points: ${pain.slice(0, 300)}`)
+  if (pain) notes.push(`pain_points: [${researchVerdict(pain)}] ${pain.slice(0, 300)}`)
 
   const trends = await runQuery(
     db,
@@ -235,47 +250,76 @@ Then output ONLY a JSON array (no fences) of at most 3 techniques: [{"name": "..
     'target_people',
     `Our product (Artifact Share) is adopted by teams like this: ${profile}
 Find X accounts posting in English or Japanese who match that profile or speak to it: founders / CTOs / founding engineers of small AI-native teams who generate design docs, briefs, teardowns or reports WITH coding agents (Claude Code, Codex, Cursor) and review them with teammates; and people complaining about sharing/reviewing agent output (Claude Artifacts sharing limits, Vercel-just-to-share-a-doc, versions in Slack, Notion not fitting agents, AIが作った成果物の共有・レビューのつらさ). Last 14 days.
-For each: @handle, approximate follower count, what they build, one representative quote with engagement numbers. Rank by follower count. Mark which ones ask for the product outright. If nothing meaningful, say "INSUFFICIENT_DATA".`,
+For each: @handle, approximate follower count, what they build, one representative quote with engagement numbers. Rank by follower count. Mark which ones ask for the product outright. ${VERDICT_RULE}`,
     { xSearch: { fromDate: daysAgo(14), toDate: week.toDate } },
   )
-  if (people) notes.push(`target_people: ${people.slice(0, 300)}`)
+  if (people) notes.push(`target_people: [${researchVerdict(people)}] ${people.slice(0, 300)}`)
 
   const competitors = await runQuery(
     db,
     log,
     'competitor_moves',
-    `Search X for the last 14 days: products that turn coding-agent output (Claude Code, Codex, Cursor) into shareable pages or team-reviewable docs (e.g. Showly, Velven, Claude Artifacts publishing, Codex share, Vercel previews, v0/Lovable/Bolt sharing). For each: who is promoting it (@handle, followers, paid-looking or organic), the exact one-line message they use, engagement, and what their message leaves out (team ownership, agent-neutral, comments that feed back to the agent, same URL across versions). If nothing meaningful, say "INSUFFICIENT_DATA".`,
+    `Search X for the last 14 days: products that turn coding-agent output (Claude Code, Codex, Cursor) into shareable pages or team-reviewable docs (e.g. Showly, Velven, Claude Artifacts publishing, Codex share, Vercel previews, v0/Lovable/Bolt sharing). For each: who is promoting it (@handle, followers, paid-looking or organic), the exact one-line message they use, engagement, and what their message leaves out (team ownership, agent-neutral, comments that feed back to the agent, same URL across versions). ${VERDICT_RULE}`,
     { xSearch: { fromDate: daysAgo(14), toDate: week.toDate } },
   )
-  if (competitors) notes.push(`competitor_moves: ${competitors.slice(0, 300)}`)
+  if (competitors) notes.push(`competitor_moves: [${researchVerdict(competitors)}] ${competitors.slice(0, 300)}`)
 
   // Reply candidates: posts that ask for the product outright. Evidence 9/14: one
   // reply from @techtalkjp with a 30s real-loop video was followed 7 minutes later
   // by a 2-person team signing up and sharing (see docs/strategy.md P9). Replies are
   // human-posted; this only drafts them into a needs-human issue.
-  notes.push(...(await weeklyReplyCandidates(db, log)))
+  // Cross-feed (I12): accounts surfaced by the sibling queries are plausible reply
+  // candidates, but the reply_candidates query never saw them until now.
+  const leads = [people, competitors].filter((t): t is string => !!t && researchVerdict(t) === 'found')
+  notes.push(...(await weeklyReplyCandidates(db, log, leads)))
   return notes
 }
 
-export async function weeklyReplyCandidates(db: Database.Database, log: Logger): Promise<string[]> {
+const REPLY_CANDIDATE_FORMAT = `For each of up to 5 posts output a block:
+URL: <post url>
+Author: @handle (followers ~N)
+Ask: <one line, what they want>
+Draft reply (<=240 chars, plain, first person, in the same language as the post, no hashtags, mention artifactshare.com once): <text>`
+
+export async function weeklyReplyCandidates(db: Database.Database, log: Logger, leads: string[] = []): Promise<string[]> {
   const week = lastWeek()
-  const text = await runQuery(
+  const leadBlock = leads.length
+    ? `\nSibling research this week surfaced the following observations. If any account or post in them matches the ask, verify the post and include it as a candidate:\n${leads.map((l) => `---\n${l.slice(0, 600)}`).join('\n')}\n`
+    : ''
+  let via = 'broad search'
+  let text = await runQuery(
     db,
     log,
     'reply_candidates',
     `Search X for posts from the last 7 days, in English or Japanese, where someone is asking for, or complaining about the lack of, a way to share and review AI-agent-generated docs, pages, slides or reports with teammates: e.g. "is there a shared workspace both humans and agents can edit", "how do you share Claude Artifacts with your team", "deploying to Vercel just to show a doc", "Notion doesn't fit agent output", 「Claude Codeに作らせたHTMLをチームでレビューしたい」「AIの成果物の共有が面倒」「Artifactsをチームで見られない」. Prefer posts with >50 likes or from founders/CTOs of small teams; for Japanese posts a lower bar (>10 likes) is fine — the pool is smaller and the account that posts replies (@techtalkjp) is Japanese. Exclude posts that are ads for a product.
-For each of up to 5 posts output a block:
-URL: <post url>
-Author: @handle (followers ~N)
-Ask: <one line, what they want>
-Draft reply (<=240 chars, plain, first person, in the same language as the post, no hashtags, mention artifactshare.com once): <text>
-If nothing meaningful, say "INSUFFICIENT_DATA".`,
+${leadBlock}${REPLY_CANDIDATE_FORMAT}
+${VERDICT_RULE}`,
     { xSearch: week },
   )
-  if (!text || text.includes('INSUFFICIENT_DATA')) return ['reply_candidates: none this week']
+  if (!text || researchVerdict(text) === 'none') {
+    // Second instrument (I12, pre-registered 9/28, armed 10/26): the broad semantic
+    // query returned zero for four straight weeks (10/5-10/26) while its positive
+    // control passed only once, so "no such posts exist" vs "search missed them" is
+    // undecidable from one instrument. Literal phrases lifted from the observed
+    // workarounds (prompts/knowledge/audience.md) have a different failure mode.
+    via = 'verbatim-phrase fallback'
+    text = await runQuery(
+      db,
+      log,
+      'reply_candidates',
+      `Run each of these EXACT quoted phrases as its own X search over the last 7 days, then read the matching posts and their authors:
+"share Claude artifacts" / "sharing Claude artifacts" / "deploy to Vercel just to" / "versions in Slack" / "shared workspace" "humans and agents" / "AIが作ったHTMLを共有" / "Claude Artifacts 共有" / "成果物の共有が面倒" / "HTML チームでレビュー"
+Report any post, at any engagement level, where the author personally has the problem the phrase describes. Exclude ads and product promotion posts.
+${REPLY_CANDIDATE_FORMAT}
+${VERDICT_RULE}`,
+      { xSearch: week },
+    )
+  }
+  if (!text || researchVerdict(text) === 'none') return ['reply_candidates: none this week (broad search + verbatim-phrase fallback)']
   const title = `Reply candidates ${week.toDate}: posts asking for the product (human posts the reply)`
   const body = [
     'Weekly list of X posts that ask for what Artifact Share does. A human (@techtalkjp) decides and posts; the agent only drafts.',
+    `Found via: ${via}.`,
     'Check each draft with `printf %s "<text>" | xlen` before posting (280 limit). Attach the 30s loop video when the ask is about reviewing agent output (skill: loop-demo-video).',
     '',
     'Evidence for this channel: 2026-09-14 reply → 2-person team signed up and shared within 7 minutes (docs/strategy.md P9). Record outcomes below so P9 can be judged.',
