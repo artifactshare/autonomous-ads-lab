@@ -7,6 +7,7 @@ import { Logger, pruneRunLogs } from '../logging/logger.ts'
 import { appendJournal } from '../reporting/journal.ts'
 import { renderLivingReportHtml } from '../reporting/html.ts'
 import { weeklyResearch } from '../research/research.ts'
+import { monthlyKnowledgeResearch } from '../research/knowledge-research.ts'
 import { ResearchRepo } from '../research/repo.ts'
 
 const db = openDb()
@@ -17,6 +18,16 @@ pruneRunLogs(db)
 const done: string[] = []
 if (process.env.XAI_API_KEY) {
   done.push(...(await weeklyResearch(db, log)))
+  // Once a month: refresh one prompts/knowledge/ domain. Self-gated on the
+  // calendar month, so calling it every week is correct (#23). Isolated
+  // because this is an extra paid query: a failure here must not discard the
+  // weekly research notes already collected above.
+  try {
+    done.push(...(await monthlyKnowledgeResearch(db, log)))
+  } catch (err) {
+    log.warn('knowledge_research_failed', { error: String(err).slice(0, 200) })
+    done.push('knowledge research: failed, will retry next week')
+  }
 } else {
   log.warn('research_skipped', { reason: 'XAI_API_KEY not set' })
 }

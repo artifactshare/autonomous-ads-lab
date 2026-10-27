@@ -13,7 +13,12 @@ function lastWeek(): { fromDate: string; toDate: string } {
   return { fromDate: from.toISOString().slice(0, 10), toDate: to.toISOString().slice(0, 10) }
 }
 
-async function runQuery(
+/**
+ * One budget-authorized research query. Exported so other research modules
+ * (e.g. the monthly knowledge refresh) reuse the same authorize -> query ->
+ * reconcile path instead of re-implementing ledger handling.
+ */
+export async function runQuery(
   db: Database.Database,
   log: Logger,
   kind: Observation['kind'],

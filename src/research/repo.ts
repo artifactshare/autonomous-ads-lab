@@ -1,7 +1,7 @@
 import type Database from 'better-sqlite3'
 
 export interface Observation {
-  kind: 'mentions' | 'ad_reactions' | 'pain_points' | 'ad_trends' | 'techniques' | 'target_people' | 'competitor_moves' | 'reply_candidates'
+  kind: 'mentions' | 'ad_reactions' | 'pain_points' | 'ad_trends' | 'techniques' | 'target_people' | 'competitor_moves' | 'reply_candidates' | 'knowledge_update'
   query: string
   source: 'grok' | 'web'
   summary: string
@@ -142,6 +142,41 @@ export class ResearchRepo {
     this.db
       .prepare('update techniques set status = ?, evidence = coalesce(?, evidence) where id = ?')
       .run(status, evidence ?? null, id)
+  }
+
+  /**
+   * Merge extra fields into the `raw` JSON of the newest observation of a kind
+   * recorded by one run, and return its id (undefined if there is none).
+   *
+   * runQuery() is what stores an observation, so a caller that parses the
+   * response afterwards has nowhere to put the parsed form. Inserting a second
+   * row instead would double-count the query in research_observations and make
+   * the cost column ambiguous, so the existing row is enriched in place.
+   * Existing keys in `raw` (toolCalls, usage) are preserved.
+   */
+  enrichLatestObservation(
+    kind: Observation['kind'],
+    runId: string,
+    extra: Record<string, unknown>,
+  ): number | undefined {
+    const row = this.db
+      .prepare('select id, raw from research_observations where kind = ? and run_id = ? order by id desc limit 1')
+      .get(kind, runId) as { id: number; raw: string | null } | undefined
+    if (!row) return undefined
+    let base: Record<string, unknown> = {}
+    try {
+      const parsed: unknown = JSON.parse(row.raw ?? '{}')
+      if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+        base = parsed as Record<string, unknown>
+      }
+    } catch {
+      // Unparseable raw is replaced rather than lost-and-crashed; the summary
+      // column still holds the full response text.
+    }
+    this.db
+      .prepare('update research_observations set raw = ? where id = ?')
+      .run(JSON.stringify({ ...base, ...extra }), row.id)
+    return row.id
   }
 
   recentObservations(days = 7): Record<string, unknown>[] {
