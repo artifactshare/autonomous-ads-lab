@@ -9,6 +9,7 @@ import { renderLivingReportHtml } from '../reporting/html.ts'
 import { weeklyResearch } from '../research/research.ts'
 import { monthlyKnowledgeResearch } from '../research/knowledge-research.ts'
 import { ResearchRepo } from '../research/repo.ts'
+import { adopterSignalsStalenessNote } from './adopter-staleness.ts'
 
 const db = openDb()
 // See daily.ts: the DB sink is the only log trace that outlives the runner.
@@ -30,6 +31,14 @@ if (process.env.XAI_API_KEY) {
   }
 } else {
   log.warn('research_skipped', { reason: 'XAI_API_KEY not set' })
+}
+
+// Liveness of the P12 instrument (I13/#243): the private adopter-signals
+// refresh stalled silently for 3 weeks before anyone noticed.
+const staleness = adopterSignalsStalenessNote()
+if (staleness) {
+  log.warn('adopter_signals_stale', { note: staleness })
+  done.push(staleness)
 }
 
 const discovered = new ResearchRepo(db).techniques('discovered').length
