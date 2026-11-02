@@ -8,6 +8,7 @@ import { BudgetController } from '../budget/controller.ts'
 import { Logger, pruneRunLogs } from '../logging/logger.ts'
 import { appendJournal } from '../reporting/journal.ts'
 import { renderLivingReportHtml } from '../reporting/html.ts'
+import { reportCommitDrift } from './commit-drift.ts'
 
 const db = openDb()
 // The DB sink is what makes this run auditable: logs/ is gitignored and the
@@ -204,4 +205,8 @@ if (process.env.ARTIFACTSHARE_TOKEN) {
 } else {
   log.warn('living_report_skipped', { reason: 'ARTIFACTSHARE_TOKEN not set' })
 }
+
+// Last, after every write: warn if this run produced an artifact that
+// `git add data/ journal/` will leave behind (#247).
+reportCommitDrift(log)
 db.close()

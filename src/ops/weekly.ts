@@ -10,6 +10,7 @@ import { weeklyResearch } from '../research/research.ts'
 import { monthlyKnowledgeResearch } from '../research/knowledge-research.ts'
 import { ResearchRepo } from '../research/repo.ts'
 import { adopterSignalsStalenessNote } from './adopter-staleness.ts'
+import { reportCommitDrift } from './commit-drift.ts'
 
 const db = openDb()
 // See daily.ts: the DB sink is the only log trace that outlives the runner.
@@ -56,4 +57,8 @@ if (process.env.ARTIFACTSHARE_TOKEN) {
   )
   log.info('living_report_published')
 }
+
+// Last, after every write: warn if this run produced an artifact that
+// `git add data/ journal/` will leave behind (#247).
+reportCommitDrift(log)
 db.close()
