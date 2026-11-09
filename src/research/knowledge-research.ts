@@ -174,6 +174,38 @@ export function shouldRunThisMonth(db: Database.Database, now: Date): boolean {
 }
 
 /**
+ * How many monthly runs in a row, counting back from the newest, produced no
+ * sourced proposal. The month gate means one observation is one month, so this
+ * is a month count.
+ *
+ * One empty month is ordinary -- a domain can genuinely be covered. Two in a
+ * row is a claim about the pipeline (prompt, parser, search) rather than about
+ * the domain, and the point of counting is to tell those apart (#275).
+ *
+ * A row whose proposals were never recorded (a run that died between the query
+ * and the enrichment) ends the count rather than extending it: an unknown
+ * month must not be reported as a confirmed empty one.
+ */
+export function consecutiveEmptyMonths(db: Database.Database): number {
+  const rows = db
+    .prepare(`select raw from research_observations where kind = 'knowledge_update' order by id desc limit 24`)
+    .all() as { raw: string | null }[]
+  let streak = 0
+  for (const row of rows) {
+    let parsed: { proposals?: unknown }
+    try {
+      parsed = JSON.parse(row.raw ?? '{}') as typeof parsed
+    } catch {
+      break
+    }
+    if (!Array.isArray(parsed.proposals)) break
+    if (parsed.proposals.length) break
+    streak += 1
+  }
+  return streak
+}
+
+/**
  * Marker the harness agent leaves in a knowledge file once it has curated a
  * proposal into it. Kept in the file rather than in the DB so the "was this
  * applied?" answer travels with the thing it describes -- a reverted knowledge
@@ -277,10 +309,27 @@ export async function monthlyKnowledgeResearch(
   // runQuery already stored the observation (and reconciled the ledger); add
   // the parsed form to it rather than inserting a second row for one query.
   const id = new ResearchRepo(db).enrichLatestObservation('knowledge_update', log.runId, { domain, proposals })
-  log.info('knowledge_update_proposed', { domain, proposals: proposals.length, observationId: id })
+
+  // An empty month is cheap to produce and expensive to miss: the paid query
+  // still ran, the month gate still closed, and nothing reached the knowledge
+  // library. Logged at warn so it stands out in the run_logs the harness agent
+  // reads first; the event name is unchanged so existing queries still match.
   if (!proposals.length) {
-    return [`knowledge research (${domain}): no sourced proposals this month (observation ${id})`]
+    const empty = consecutiveEmptyMonths(db)
+    log.warn('knowledge_update_proposed', {
+      domain,
+      proposals: 0,
+      observationId: id,
+      consecutiveEmptyMonths: empty,
+    })
+    const streak =
+      empty > 1
+        ? `no sourced proposals for ${empty} months running — suspect the pipeline (prompt/parser/search), not the domain`
+        : 'no sourced proposals this month — check whether the search or the prompt is at fault'
+    return [`knowledge research (${domain}): ${streak} (observation ${id})`]
   }
+
+  log.info('knowledge_update_proposed', { domain, proposals: proposals.length, observationId: id })
   return [
     `knowledge research (${domain}): ${proposals.length} sourced proposal(s) parked as observation ${id} for the harness agent to curate into prompts/knowledge/${domain}.md`,
   ]

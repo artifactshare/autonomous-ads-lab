@@ -10,6 +10,7 @@ import {
   DOMAIN_ROTATION,
   MAX_EXISTING_CHARS,
   MAX_PROPOSALS,
+  consecutiveEmptyMonths,
   domainForMonth,
   existingIsTruncated,
   jstMonth,
@@ -263,6 +264,56 @@ describe('monthlyKnowledgeResearch', () => {
     expect(shouldRunThisMonth(db, new Date())).toBe(false)
   })
 
+  // #275: the first real run returned "[]" and said so at info level, in a
+  // journal line that read like normal operation.
+  it('reports an empty month at warn level with the streak, not at info', async () => {
+    const { db, log } = setup()
+    const restore = stubGrok('[]')
+    try {
+      await monthlyKnowledgeResearch(db, log, new Date(), () => 'existing')
+    } finally {
+      restore()
+    }
+    const rows = db
+      .prepare("select level, fields from run_logs where event = 'knowledge_update_proposed'")
+      .all() as { level: string; fields: string }[]
+    expect(rows).toHaveLength(1)
+    expect(rows[0]!.level).toBe('warn')
+    expect(JSON.parse(rows[0]!.fields)).toMatchObject({ proposals: 0, consecutiveEmptyMonths: 1 })
+  })
+
+  it('keeps a productive month at info level and carries no streak', async () => {
+    const { db, log } = setup()
+    const restore = stubGrok(JSON.stringify([proposal(1)]))
+    try {
+      await monthlyKnowledgeResearch(db, log, new Date(), () => 'existing')
+    } finally {
+      restore()
+    }
+    const row = db
+      .prepare("select level, fields from run_logs where event = 'knowledge_update_proposed'")
+      .get() as { level: string; fields: string }
+    expect(row.level).toBe('info')
+    expect(JSON.parse(row.fields)).not.toHaveProperty('consecutiveEmptyMonths')
+  })
+
+  it('escalates the journal line once a second month comes back empty', async () => {
+    const { db, log } = setup()
+    db.prepare(
+      `insert into research_observations (created_at, kind, query, source, summary, raw, cost_usd, run_id)
+       values ('2026-09-10T00:00:00.000Z', 'knowledge_update', 'q', 'grok', '[]', '{"domain":"audience","proposals":[]}', 0.05, 'r')`,
+    ).run()
+    const restore = stubGrok('[]')
+    let notes: string[]
+    try {
+      notes = await monthlyKnowledgeResearch(db, log, new Date(), () => 'existing')
+    } finally {
+      restore()
+    }
+    expect(notes.join(' ')).toContain('2 months running')
+    expect(notes.join(' ')).toContain('suspect the pipeline')
+  })
+
   /** Run logs reach main through the DB sink; that is what the agent reads. */
   const loggedEvents = (db: Database.Database, event: string) =>
     db.prepare('select fields from run_logs where event = ?').all(event) as { fields: string }[]
@@ -297,6 +348,44 @@ describe('monthlyKnowledgeResearch', () => {
     const notes = await monthlyKnowledgeResearch(db, log, new Date(), () => 'existing')
     expect(notes.join(' ')).toContain('will retry next week')
     expect(shouldRunThisMonth(db, new Date())).toBe(true)
+  })
+})
+
+describe('consecutiveEmptyMonths', () => {
+  /** Insert knowledge_update observations oldest-first, as the months ran. */
+  function months(raws: (string | null)[]): Database.Database {
+    const db = openDb(':memory:')
+    for (const raw of raws) {
+      db.prepare(
+        `insert into research_observations (kind, query, source, summary, raw, cost_usd, run_id)
+         values ('knowledge_update', 'q', 'grok', 's', ?, 0.05, 'r')`,
+      ).run(raw)
+    }
+    return db
+  }
+
+  const empty = '{"domain":"audience","proposals":[]}'
+  const full = '{"domain":"audience","proposals":[{"insight":"i"}]}'
+
+  it('is 0 with no runs at all', () => {
+    expect(consecutiveEmptyMonths(openDb(':memory:'))).toBe(0)
+  })
+
+  it('counts back from the newest run only', () => {
+    expect(consecutiveEmptyMonths(months([empty, empty, full]))).toBe(0)
+    expect(consecutiveEmptyMonths(months([full, empty, empty]))).toBe(2)
+  })
+
+  it('stops at the first productive month rather than totalling', () => {
+    expect(consecutiveEmptyMonths(months([empty, full, empty]))).toBe(1)
+  })
+
+  // A run that died between the paid query and the enrichment leaves a row
+  // with no proposals key. Unknown is not evidence of empty.
+  it('stops at a run whose proposals were never recorded', () => {
+    expect(consecutiveEmptyMonths(months([empty, '{"toolCalls":4}', empty]))).toBe(1)
+    expect(consecutiveEmptyMonths(months([empty, null, empty]))).toBe(1)
+    expect(consecutiveEmptyMonths(months([empty, 'not json', empty]))).toBe(1)
   })
 })
 
