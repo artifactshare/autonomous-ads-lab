@@ -1,4 +1,4 @@
-import { mkdtempSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type Database from 'better-sqlite3'
@@ -8,8 +8,10 @@ import { Logger } from '../src/logging/logger.ts'
 import { ResearchRepo } from '../src/research/repo.ts'
 import {
   DOMAIN_ROTATION,
+  MAX_EXISTING_CHARS,
   MAX_PROPOSALS,
   domainForMonth,
+  existingIsTruncated,
   jstMonth,
   knowledgePrompt,
   monthlyKnowledgeResearch,
@@ -135,7 +137,32 @@ describe('knowledgePrompt', () => {
 
   it('bounds the existing file so a large one cannot blow up the request', () => {
     const prompt = knowledgePrompt('audience', 'x'.repeat(50_000))
-    expect(prompt.length).toBeLessThan(10_000)
+    expect(prompt.length).toBeLessThan(MAX_EXISTING_CHARS + 4_000)
+  })
+
+  // #274: three of the four real files were over the old 6000 bound, so the
+  // model was asked what was "missing" from a file it could only half see.
+  it('carries every real knowledge file in full', () => {
+    for (const domain of DOMAIN_ROTATION) {
+      const body = readFileSync(`prompts/knowledge/${domain}.md`, 'utf8')
+      expect(existingIsTruncated(body), `${domain}.md no longer fits the prompt`).toBe(false)
+      expect(knowledgePrompt(domain, body)).toContain(body)
+    }
+  })
+
+  it('tells the model when it is only seeing the beginning of the file', () => {
+    const prompt = knowledgePrompt('audience', `HEAD${'x'.repeat(MAX_EXISTING_CHARS)}CUT-OFF-BODY`)
+    expect(prompt).toContain('only the BEGINNING')
+    expect(prompt).toContain('truncated="true"')
+    expect(prompt).toContain('HEAD')
+    expect(prompt).not.toContain('CUT-OFF-BODY')
+  })
+
+  it('does not claim truncation for a file that fits', () => {
+    const prompt = knowledgePrompt('audience', 'short body')
+    expect(prompt).not.toContain('only the BEGINNING')
+    expect(prompt).not.toContain('truncated="true"')
+    expect(prompt).toContain('in full')
   })
 })
 
@@ -234,6 +261,34 @@ describe('monthlyKnowledgeResearch', () => {
     }
     // An empty month is recorded, so the paid query is not retried next week.
     expect(shouldRunThisMonth(db, new Date())).toBe(false)
+  })
+
+  /** Run logs reach main through the DB sink; that is what the agent reads. */
+  const loggedEvents = (db: Database.Database, event: string) =>
+    db.prepare('select fields from run_logs where event = ?').all(event) as { fields: string }[]
+
+  it('warns when the file it is diffing against no longer fits the prompt', async () => {
+    const { db, log } = setup()
+    const restore = stubGrok('[]')
+    try {
+      await monthlyKnowledgeResearch(db, log, new Date(), () => 'x'.repeat(MAX_EXISTING_CHARS + 1))
+    } finally {
+      restore()
+    }
+    const rows = loggedEvents(db, 'knowledge_existing_truncated')
+    expect(rows).toHaveLength(1)
+    expect(JSON.parse(rows[0]!.fields)).toMatchObject({ chars: MAX_EXISTING_CHARS + 1, limit: MAX_EXISTING_CHARS })
+  })
+
+  it('stays quiet about truncation when the whole file fits', async () => {
+    const { db, log } = setup()
+    const restore = stubGrok('[]')
+    try {
+      await monthlyKnowledgeResearch(db, log, new Date(), () => 'x'.repeat(MAX_EXISTING_CHARS))
+    } finally {
+      restore()
+    }
+    expect(loggedEvents(db, 'knowledge_existing_truncated')).toHaveLength(0)
   })
 
   it('leaves the month open when the query itself could not run', async () => {

@@ -71,6 +71,16 @@ const DOMAIN_BRIEF: Record<KnowledgeDomain, string> = {
 /** Max proposals kept from one response. Keeps the curation step reviewable. */
 export const MAX_PROPOSALS = 5
 
+/**
+ * How much of the existing file the prompt may carry. A bound is needed -- a
+ * runaway file must not blow up the request -- but it has to clear the real
+ * ones, which only grow: at 6000 the largest domain showed the model 38% of
+ * itself and still asked it what was "missing" (#274). The whole library is
+ * ~48KB, so 20000 covers every single file with headroom, and the extra ~3k
+ * tokens are noise next to the ~23k a web-search turn already spends.
+ */
+export const MAX_EXISTING_CHARS = 20_000
+
 export interface KnowledgeProposal {
   insight: string
   detail: string
@@ -78,15 +88,26 @@ export interface KnowledgeProposal {
   confidence: 'high' | 'medium' | 'low'
 }
 
+/** True when `existing` does not fit the prompt and will be shown head-only. */
+export function existingIsTruncated(existing: string): boolean {
+  return existing.length > MAX_EXISTING_CHARS
+}
+
 export function knowledgePrompt(domain: KnowledgeDomain, existing: string): string {
+  const truncated = existingIsTruncated(existing)
+  // Saying so matters as much as the bound itself: told nothing, the model
+  // treats the excerpt as the whole file and calls the hidden tail "missing".
+  const scope = truncated
+    ? `Below is only the BEGINNING of the file (it is too long to show in full), so something you believe is missing may already appear in the part you cannot see. Propose it only if you are confident it is genuinely absent or has changed.`
+    : `The file already contains the knowledge below in full.`
   return `You are updating one file of an internal knowledge library used to brief ad-generation prompts.
 
 Domain: ${domain} — ${DOMAIN_BRIEF[domain]}
 
-The file already contains the knowledge below. Do NOT repeat anything already covered; find what is MISSING or what has CHANGED since it was written.
+${scope} Do NOT repeat anything already covered; find what is MISSING or what has CHANGED since it was written.
 
-<existing>
-${existing.slice(0, 6000)}
+<existing${truncated ? ' truncated="true"' : ''}>
+${existing.slice(0, MAX_EXISTING_CHARS)}
 </existing>
 
 Search the web (and X where practitioners discuss it) for concrete, actionable, recent knowledge in this domain. Prefer primary sources: official docs, platform help pages, published experiments with numbers. Ignore content marketing that just restates common advice.
@@ -230,11 +251,22 @@ export async function monthlyKnowledgeResearch(
   if (!shouldRunThisMonth(db, now)) return []
   const domain = domainForMonth(now)
 
+  const existing = readExisting(domain)
+  // The files only grow, so this is a "raise MAX_EXISTING_CHARS" signal, not a
+  // transient. Silence is what let the old 6000 bound rot unnoticed (#274).
+  if (existingIsTruncated(existing)) {
+    log.warn('knowledge_existing_truncated', {
+      domain,
+      chars: existing.length,
+      limit: MAX_EXISTING_CHARS,
+    })
+  }
+
   const text = await runQuery(
     db,
     log,
     'knowledge_update',
-    knowledgePrompt(domain, readExisting(domain)),
+    knowledgePrompt(domain, existing),
     { webSearch: true },
   )
   // runQuery already logged and journalled the reason (budget or API failure).
