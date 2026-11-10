@@ -1,4 +1,4 @@
-import { mkdtempSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type Database from 'better-sqlite3'
@@ -8,8 +8,11 @@ import { Logger } from '../src/logging/logger.ts'
 import { ResearchRepo } from '../src/research/repo.ts'
 import {
   DOMAIN_ROTATION,
+  MAX_EXISTING_CHARS,
   MAX_PROPOSALS,
+  consecutiveEmptyMonths,
   domainForMonth,
+  existingIsTruncated,
   jstMonth,
   knowledgePrompt,
   monthlyKnowledgeResearch,
@@ -135,7 +138,32 @@ describe('knowledgePrompt', () => {
 
   it('bounds the existing file so a large one cannot blow up the request', () => {
     const prompt = knowledgePrompt('audience', 'x'.repeat(50_000))
-    expect(prompt.length).toBeLessThan(10_000)
+    expect(prompt.length).toBeLessThan(MAX_EXISTING_CHARS + 4_000)
+  })
+
+  // #274: three of the four real files were over the old 6000 bound, so the
+  // model was asked what was "missing" from a file it could only half see.
+  it('carries every real knowledge file in full', () => {
+    for (const domain of DOMAIN_ROTATION) {
+      const body = readFileSync(`prompts/knowledge/${domain}.md`, 'utf8')
+      expect(existingIsTruncated(body), `${domain}.md no longer fits the prompt`).toBe(false)
+      expect(knowledgePrompt(domain, body)).toContain(body)
+    }
+  })
+
+  it('tells the model when it is only seeing the beginning of the file', () => {
+    const prompt = knowledgePrompt('audience', `HEAD${'x'.repeat(MAX_EXISTING_CHARS)}CUT-OFF-BODY`)
+    expect(prompt).toContain('only the BEGINNING')
+    expect(prompt).toContain('truncated="true"')
+    expect(prompt).toContain('HEAD')
+    expect(prompt).not.toContain('CUT-OFF-BODY')
+  })
+
+  it('does not claim truncation for a file that fits', () => {
+    const prompt = knowledgePrompt('audience', 'short body')
+    expect(prompt).not.toContain('only the BEGINNING')
+    expect(prompt).not.toContain('truncated="true"')
+    expect(prompt).toContain('in full')
   })
 })
 
@@ -236,12 +264,128 @@ describe('monthlyKnowledgeResearch', () => {
     expect(shouldRunThisMonth(db, new Date())).toBe(false)
   })
 
+  // #275: the first real run returned "[]" and said so at info level, in a
+  // journal line that read like normal operation.
+  it('reports an empty month at warn level with the streak, not at info', async () => {
+    const { db, log } = setup()
+    const restore = stubGrok('[]')
+    try {
+      await monthlyKnowledgeResearch(db, log, new Date(), () => 'existing')
+    } finally {
+      restore()
+    }
+    const rows = db
+      .prepare("select level, fields from run_logs where event = 'knowledge_update_proposed'")
+      .all() as { level: string; fields: string }[]
+    expect(rows).toHaveLength(1)
+    expect(rows[0]!.level).toBe('warn')
+    expect(JSON.parse(rows[0]!.fields)).toMatchObject({ proposals: 0, consecutiveEmptyMonths: 1 })
+  })
+
+  it('keeps a productive month at info level and carries no streak', async () => {
+    const { db, log } = setup()
+    const restore = stubGrok(JSON.stringify([proposal(1)]))
+    try {
+      await monthlyKnowledgeResearch(db, log, new Date(), () => 'existing')
+    } finally {
+      restore()
+    }
+    const row = db
+      .prepare("select level, fields from run_logs where event = 'knowledge_update_proposed'")
+      .get() as { level: string; fields: string }
+    expect(row.level).toBe('info')
+    expect(JSON.parse(row.fields)).not.toHaveProperty('consecutiveEmptyMonths')
+  })
+
+  it('escalates the journal line once a second month comes back empty', async () => {
+    const { db, log } = setup()
+    db.prepare(
+      `insert into research_observations (created_at, kind, query, source, summary, raw, cost_usd, run_id)
+       values ('2026-09-10T00:00:00.000Z', 'knowledge_update', 'q', 'grok', '[]', '{"domain":"audience","proposals":[]}', 0.05, 'r')`,
+    ).run()
+    const restore = stubGrok('[]')
+    let notes: string[]
+    try {
+      notes = await monthlyKnowledgeResearch(db, log, new Date(), () => 'existing')
+    } finally {
+      restore()
+    }
+    expect(notes.join(' ')).toContain('2 months running')
+    expect(notes.join(' ')).toContain('suspect the pipeline')
+  })
+
+  /** Run logs reach main through the DB sink; that is what the agent reads. */
+  const loggedEvents = (db: Database.Database, event: string) =>
+    db.prepare('select fields from run_logs where event = ?').all(event) as { fields: string }[]
+
+  it('warns when the file it is diffing against no longer fits the prompt', async () => {
+    const { db, log } = setup()
+    const restore = stubGrok('[]')
+    try {
+      await monthlyKnowledgeResearch(db, log, new Date(), () => 'x'.repeat(MAX_EXISTING_CHARS + 1))
+    } finally {
+      restore()
+    }
+    const rows = loggedEvents(db, 'knowledge_existing_truncated')
+    expect(rows).toHaveLength(1)
+    expect(JSON.parse(rows[0]!.fields)).toMatchObject({ chars: MAX_EXISTING_CHARS + 1, limit: MAX_EXISTING_CHARS })
+  })
+
+  it('stays quiet about truncation when the whole file fits', async () => {
+    const { db, log } = setup()
+    const restore = stubGrok('[]')
+    try {
+      await monthlyKnowledgeResearch(db, log, new Date(), () => 'x'.repeat(MAX_EXISTING_CHARS))
+    } finally {
+      restore()
+    }
+    expect(loggedEvents(db, 'knowledge_existing_truncated')).toHaveLength(0)
+  })
+
   it('leaves the month open when the query itself could not run', async () => {
     const { db, log } = setup()
     // No XAI_API_KEY -> grokQuery throws -> runQuery catches and returns null.
     const notes = await monthlyKnowledgeResearch(db, log, new Date(), () => 'existing')
     expect(notes.join(' ')).toContain('will retry next week')
     expect(shouldRunThisMonth(db, new Date())).toBe(true)
+  })
+})
+
+describe('consecutiveEmptyMonths', () => {
+  /** Insert knowledge_update observations oldest-first, as the months ran. */
+  function months(raws: (string | null)[]): Database.Database {
+    const db = openDb(':memory:')
+    for (const raw of raws) {
+      db.prepare(
+        `insert into research_observations (kind, query, source, summary, raw, cost_usd, run_id)
+         values ('knowledge_update', 'q', 'grok', 's', ?, 0.05, 'r')`,
+      ).run(raw)
+    }
+    return db
+  }
+
+  const empty = '{"domain":"audience","proposals":[]}'
+  const full = '{"domain":"audience","proposals":[{"insight":"i"}]}'
+
+  it('is 0 with no runs at all', () => {
+    expect(consecutiveEmptyMonths(openDb(':memory:'))).toBe(0)
+  })
+
+  it('counts back from the newest run only', () => {
+    expect(consecutiveEmptyMonths(months([empty, empty, full]))).toBe(0)
+    expect(consecutiveEmptyMonths(months([full, empty, empty]))).toBe(2)
+  })
+
+  it('stops at the first productive month rather than totalling', () => {
+    expect(consecutiveEmptyMonths(months([empty, full, empty]))).toBe(1)
+  })
+
+  // A run that died between the paid query and the enrichment leaves a row
+  // with no proposals key. Unknown is not evidence of empty.
+  it('stops at a run whose proposals were never recorded', () => {
+    expect(consecutiveEmptyMonths(months([empty, '{"toolCalls":4}', empty]))).toBe(1)
+    expect(consecutiveEmptyMonths(months([empty, null, empty]))).toBe(1)
+    expect(consecutiveEmptyMonths(months([empty, 'not json', empty]))).toBe(1)
   })
 })
 

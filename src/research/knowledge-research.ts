@@ -71,6 +71,16 @@ const DOMAIN_BRIEF: Record<KnowledgeDomain, string> = {
 /** Max proposals kept from one response. Keeps the curation step reviewable. */
 export const MAX_PROPOSALS = 5
 
+/**
+ * How much of the existing file the prompt may carry. A bound is needed -- a
+ * runaway file must not blow up the request -- but it has to clear the real
+ * ones, which only grow: at 6000 the largest domain showed the model 38% of
+ * itself and still asked it what was "missing" (#274). The whole library is
+ * ~48KB, so 20000 covers every single file with headroom, and the extra ~3k
+ * tokens are noise next to the ~23k a web-search turn already spends.
+ */
+export const MAX_EXISTING_CHARS = 20_000
+
 export interface KnowledgeProposal {
   insight: string
   detail: string
@@ -78,15 +88,26 @@ export interface KnowledgeProposal {
   confidence: 'high' | 'medium' | 'low'
 }
 
+/** True when `existing` does not fit the prompt and will be shown head-only. */
+export function existingIsTruncated(existing: string): boolean {
+  return existing.length > MAX_EXISTING_CHARS
+}
+
 export function knowledgePrompt(domain: KnowledgeDomain, existing: string): string {
+  const truncated = existingIsTruncated(existing)
+  // Saying so matters as much as the bound itself: told nothing, the model
+  // treats the excerpt as the whole file and calls the hidden tail "missing".
+  const scope = truncated
+    ? `Below is only the BEGINNING of the file (it is too long to show in full), so something you believe is missing may already appear in the part you cannot see. Propose it only if you are confident it is genuinely absent or has changed.`
+    : `The file already contains the knowledge below in full.`
   return `You are updating one file of an internal knowledge library used to brief ad-generation prompts.
 
 Domain: ${domain} — ${DOMAIN_BRIEF[domain]}
 
-The file already contains the knowledge below. Do NOT repeat anything already covered; find what is MISSING or what has CHANGED since it was written.
+${scope} Do NOT repeat anything already covered; find what is MISSING or what has CHANGED since it was written.
 
-<existing>
-${existing.slice(0, 6000)}
+<existing${truncated ? ' truncated="true"' : ''}>
+${existing.slice(0, MAX_EXISTING_CHARS)}
 </existing>
 
 Search the web (and X where practitioners discuss it) for concrete, actionable, recent knowledge in this domain. Prefer primary sources: official docs, platform help pages, published experiments with numbers. Ignore content marketing that just restates common advice.
@@ -150,6 +171,38 @@ export function shouldRunThisMonth(db: Database.Database, now: Date): boolean {
     const t = Date.parse(r.created_at.endsWith('Z') ? r.created_at : `${r.created_at}Z`)
     return Number.isFinite(t) && jstMonth(new Date(t)) === month
   })
+}
+
+/**
+ * How many monthly runs in a row, counting back from the newest, produced no
+ * sourced proposal. The month gate means one observation is one month, so this
+ * is a month count.
+ *
+ * One empty month is ordinary -- a domain can genuinely be covered. Two in a
+ * row is a claim about the pipeline (prompt, parser, search) rather than about
+ * the domain, and the point of counting is to tell those apart (#275).
+ *
+ * A row whose proposals were never recorded (a run that died between the query
+ * and the enrichment) ends the count rather than extending it: an unknown
+ * month must not be reported as a confirmed empty one.
+ */
+export function consecutiveEmptyMonths(db: Database.Database): number {
+  const rows = db
+    .prepare(`select raw from research_observations where kind = 'knowledge_update' order by id desc limit 24`)
+    .all() as { raw: string | null }[]
+  let streak = 0
+  for (const row of rows) {
+    let parsed: { proposals?: unknown }
+    try {
+      parsed = JSON.parse(row.raw ?? '{}') as typeof parsed
+    } catch {
+      break
+    }
+    if (!Array.isArray(parsed.proposals)) break
+    if (parsed.proposals.length) break
+    streak += 1
+  }
+  return streak
 }
 
 /**
@@ -230,11 +283,22 @@ export async function monthlyKnowledgeResearch(
   if (!shouldRunThisMonth(db, now)) return []
   const domain = domainForMonth(now)
 
+  const existing = readExisting(domain)
+  // The files only grow, so this is a "raise MAX_EXISTING_CHARS" signal, not a
+  // transient. Silence is what let the old 6000 bound rot unnoticed (#274).
+  if (existingIsTruncated(existing)) {
+    log.warn('knowledge_existing_truncated', {
+      domain,
+      chars: existing.length,
+      limit: MAX_EXISTING_CHARS,
+    })
+  }
+
   const text = await runQuery(
     db,
     log,
     'knowledge_update',
-    knowledgePrompt(domain, readExisting(domain)),
+    knowledgePrompt(domain, existing),
     { webSearch: true },
   )
   // runQuery already logged and journalled the reason (budget or API failure).
@@ -245,10 +309,27 @@ export async function monthlyKnowledgeResearch(
   // runQuery already stored the observation (and reconciled the ledger); add
   // the parsed form to it rather than inserting a second row for one query.
   const id = new ResearchRepo(db).enrichLatestObservation('knowledge_update', log.runId, { domain, proposals })
-  log.info('knowledge_update_proposed', { domain, proposals: proposals.length, observationId: id })
+
+  // An empty month is cheap to produce and expensive to miss: the paid query
+  // still ran, the month gate still closed, and nothing reached the knowledge
+  // library. Logged at warn so it stands out in the run_logs the harness agent
+  // reads first; the event name is unchanged so existing queries still match.
   if (!proposals.length) {
-    return [`knowledge research (${domain}): no sourced proposals this month (observation ${id})`]
+    const empty = consecutiveEmptyMonths(db)
+    log.warn('knowledge_update_proposed', {
+      domain,
+      proposals: 0,
+      observationId: id,
+      consecutiveEmptyMonths: empty,
+    })
+    const streak =
+      empty > 1
+        ? `no sourced proposals for ${empty} months running — suspect the pipeline (prompt/parser/search), not the domain`
+        : 'no sourced proposals this month — check whether the search or the prompt is at fault'
+    return [`knowledge research (${domain}): ${streak} (observation ${id})`]
   }
+
+  log.info('knowledge_update_proposed', { domain, proposals: proposals.length, observationId: id })
   return [
     `knowledge research (${domain}): ${proposals.length} sourced proposal(s) parked as observation ${id} for the harness agent to curate into prompts/knowledge/${domain}.md`,
   ]
